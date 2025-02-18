@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_sort"
+        android:title="@string/sort"
+        android:icon="@drawable/ic_sort_24dp"
+        app:showAsAction="ifRoom">
+        <menu>
+            <item
+                android:id="@+id/menu_sort_manual"
+                android:title="@string/manual_order" />
+            <item
+                android:id="@+id/menu_sort_date"
+                android:title="@string/newest_first" />
+            <item
+                android:id="@+id/menu_sort_quantity"
+                android:title="@string/by_quantity" />
+            <item
+                android:id="@+id/menu_sort_picked"
+                android:title="@string/picked_first" />
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/action_search"
+        android:title="@string/search"
+        android:icon="@drawable/ic_search_24dp"
+        app:showAsAction="ifRoom|collapseActionView"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"/>
+
+</menu>
+
