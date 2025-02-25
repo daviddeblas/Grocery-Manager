@@ -60,6 +60,9 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
+    implementation ("com.google.android.libraries.places:places:4.1.0")
+    implementation (libs.play.services.location)
+    implementation(libs.places)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -68,10 +71,10 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    // Room dependencies
-    val roomVersion = "2.6.1" // Use the latest version
+    // Room dependencies (database)
+    val roomVersion = "2.6.1"
     implementation(libs.androidx.room.runtime)
     kapt("androidx.room:room-compiler:$roomVersion")
-    implementation(libs.androidx.room.ktx) // Kotlin Extensions and Coroutines support for Room
-    testImplementation(libs.androidx.room.testing) // For testing your Room database
+    implementation(libs.androidx.room.ktx)
+    testImplementation(libs.androidx.room.testing)
 }

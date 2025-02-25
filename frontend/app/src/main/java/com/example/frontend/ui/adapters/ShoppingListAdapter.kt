@@ -11,7 +11,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.frontend.R
 import com.example.frontend.data.model.ShoppingList
 
-/** ShoppingListAdapter displays each shopping list in a card layout. */
+/**
+ * ShoppingListAdapter displays each shopping list in a card layout.
+ * */
 class ShoppingListAdapter(
     private val onClick: (ShoppingList) -> Unit,
     private val onDeleteList: (ShoppingList) -> Unit

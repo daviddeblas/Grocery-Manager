@@ -5,7 +5,9 @@ import androidx.lifecycle.*
 import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.ShoppingList
 import com.example.frontend.data.model.SortMode
+import com.example.frontend.data.model.StoreLocation
 import com.example.frontend.repository.ShoppingRepository
+import com.example.frontend.repository.StoreLocationRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -117,5 +119,19 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
      */
     fun getOrCreateDefaultListId(): Int = runBlocking {
         repository.getOrCreateDefaultListId()
+    }
+
+    // CRUD operations for store locations
+
+    private val storeRepository = StoreLocationRepository(getApplication())
+
+    val allStores: LiveData<List<StoreLocation>> = storeRepository.allStores
+
+    fun addStore(store: StoreLocation) = viewModelScope.launch {
+        storeRepository.addStore(store)
+    }
+
+    fun deleteStore(store: StoreLocation) = viewModelScope.launch {
+        storeRepository.deleteStore(store)
     }
 }

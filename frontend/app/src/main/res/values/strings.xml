@@ -20,4 +20,7 @@
     <string name="search">Search</string>
     <string name="sort">Sort</string>
     <string name="delete_list">Delete list</string>
+
+    <string name="google_maps_key">MY_GOOGLE_MAPS_KEY</string>
+    <string name="store_icon_desc">Store icon</string>
 </resources>

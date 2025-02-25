@@ -1,6 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Required permissions for Geofencing ! -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -12,23 +18,32 @@
         android:theme="@style/Theme.Frontend"
         tools:targetApi="31">
 
+        <!-- Google Maps API Key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
+
         <!-- ShoppingListActivity is the front page -->
         <activity
             android:name=".ui.activities.ShoppingListActivity"
             android:exported="true"
             android:theme="@style/Theme.Frontend">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Geofence BroadcastReceiver Declaration -->
+        <receiver
+            android:name=".receiver.GeofenceBroadcastReceiver"
+            android:exported="true"
+            android:enabled="true"/>
+
         <activity
             android:name=".ui.activities.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Frontend" />
-
     </application>
 
 </manifest>

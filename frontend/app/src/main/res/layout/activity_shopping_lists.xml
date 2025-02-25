@@ -14,7 +14,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fitsSystemWindows="true">
-
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbarList"
             android:layout_width="match_parent"
@@ -23,14 +22,45 @@
             app:titleTextColor="@android:color/white"/>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- RecyclerView which lists all shopping lists -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerViewLists"
+    <!-- Main container for scrollable content -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:clipToPadding="false"
-        android:padding="16dp" />
+        android:paddingBottom="100dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- RecyclerView which lists all shopping lists -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerViewLists"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false" />
+
+            <!-- Title for the store section -->
+            <TextView
+                android:id="@+id/tvStoresTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="Stores"
+                android:textAppearance="?attr/textAppearanceHeadline6" />
+
+            <!-- RecyclerView which lists all the stores -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerViewStores"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingTop="8dp" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <!-- Button to add a new shopping list -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -41,6 +71,18 @@
         android:layout_margin="16dp"
         android:contentDescription="Add List"
         android:src="@drawable/ic_add_24dp"
+        app:backgroundTint="?attr/colorPrimary"
+        app:tint="@android:color/white" />
+
+    <!-- Button to add a new store -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabManageStores"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:contentDescription="Manage Stores"
+        android:src="@drawable/ic_location"
         app:backgroundTint="?attr/colorPrimary"
         app:tint="@android:color/white" />
 
