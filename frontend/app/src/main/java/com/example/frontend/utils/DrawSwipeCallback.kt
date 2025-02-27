@@ -33,6 +33,12 @@ class DragSwipeCallback(
         viewHolder: RecyclerView.ViewHolder,
         target: RecyclerView.ViewHolder
     ): Boolean {
+        // Do not allow moving add view (last view)
+        if (viewHolder.bindingAdapterPosition == adapter.items.size ||
+            target.bindingAdapterPosition == adapter.items.size) {
+            return false
+        }
+
         val fromPos = viewHolder.bindingAdapterPosition
         val toPos = target.bindingAdapterPosition
         adapter.moveItemInList(fromPos, toPos)
@@ -42,8 +48,18 @@ class DragSwipeCallback(
     /** Removes the item from the adapter and triggers the onSwiped callback. */
     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
         val pos = viewHolder.bindingAdapterPosition
+        if (pos == adapter.items.size) {
+            // Just refresh the element to cancel the swipe animation
+            notifyItemChanged(pos)
+            return
+        }
+
         val removedItem = adapter.removeItemAt(pos) ?: return
         onSwiped(removedItem)
+    }
+
+    private fun notifyItemChanged(position: Int) {
+        adapter.notifyItemChanged(position)
     }
 
     /**
@@ -66,10 +82,15 @@ class DragSwipeCallback(
         actionState: Int,
         isCurrentlyActive: Boolean
     ) {
+        // Check that it is not the add element (last element)
+        if (viewHolder.bindingAdapterPosition == adapter.items.size) {
+            return
+        }
+
         if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
             val itemView = viewHolder.itemView
 
-            // Create a Paint object for the red background.
+            // Créer un objet Paint pour l'arrière-plan rouge.
             val backgroundPaint = Paint().apply { color = Color.RED }
 
             if (dX > 0) {
@@ -114,5 +135,10 @@ class DragSwipeCallback(
         }
 
         super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+    }
+
+    override fun isItemViewSwipeEnabled(): Boolean {
+        // Allow scanning for all elements except the last one (because it is the add element !!)
+        return true
     }
 }

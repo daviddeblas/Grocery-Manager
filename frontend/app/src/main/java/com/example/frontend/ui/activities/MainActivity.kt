@@ -3,14 +3,15 @@ package com.example.frontend.ui.activities
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.MotionEvent
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -23,7 +24,6 @@ import com.example.frontend.utils.DragSwipeCallback
 import com.example.frontend.viewmodel.ShoppingViewModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.runBlocking
@@ -59,9 +59,25 @@ class MainActivity : AppCompatActivity() {
 
         // For automatic refresh of the UI when the data changes (LiveData)
         setupObservers()
+    }
 
-        // The plus button to add a new item
-        setupFab()
+    /**
+     * Hide the keyboard when clicked outside of an EditText element.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val v = currentFocus
+            if (v is EditText) {
+                val outRect = android.graphics.Rect()
+                v.getGlobalVisibleRect(outRect)
+                if (!outRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    v.clearFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     /** Configures the Toolbar as the ActionBar and applies window insets only to it */
@@ -97,6 +113,21 @@ class MainActivity : AppCompatActivity() {
             },
             onQuantityChanged = { item, newQty ->
                 viewModel.updateItem(item.copy(quantity = newQty))
+            },
+            onNameChanged = { item, newName ->
+                viewModel.updateItem(item.copy(name = newName))
+            },
+            onUnitTypeChanged = { item, newUnitType ->
+                val newQty = if (newUnitType == "pcs" && item.unitType != "pcs") {
+                    Math.round(item.quantity).toDouble()
+                } else {
+                    item.quantity
+                }
+                viewModel.updateItem(item.copy(unitType = newUnitType, quantity = newQty))
+            },
+            onAddNewItem = { name ->
+                // Add a new element with default values
+                viewModel.addItem(name, 1.0, "pcs")
             }
         )
         recyclerView.adapter = manualAdapter
@@ -120,12 +151,6 @@ class MainActivity : AppCompatActivity() {
                 itemTouchHelper?.attachToRecyclerView(null)
             }
         }
-    }
-
-    /** Sets up the Floating Action Button to open the "Add Item" dialog */
-    private fun setupFab() {
-        val fabAdd = findViewById<FloatingActionButton>(R.id.fabAdd)
-        fabAdd.setOnClickListener { showAddItemDialog() }
     }
 
     /** Filters the provided list of items based on the search query (case-insensitive) */
@@ -200,36 +225,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** Opens a dialog for adding a new shopping item */
-    private fun showAddItemDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_add_item, null)
-        val etName = dialogView.findViewById<TextInputEditText>(R.id.etItemName)
-        val etQuantity = dialogView.findViewById<TextInputEditText>(R.id.etQuantity)
-        val spinnerUnit = dialogView.findViewById<Spinner>(R.id.spinnerUnit)
-
-        // Set up spinner with unit types from resources
-        ArrayAdapter.createFromResource(
-            this,
-            R.array.unit_types,
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerUnit.adapter = adapter
-        }
-
-        MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.title_add_dialog))
-            .setView(dialogView)
-            .setPositiveButton(getString(R.string.msg_add)) { _, _ ->
-                val name = etName.text?.toString().orEmpty()
-                val qty = etQuantity.text?.toString()?.toDoubleOrNull() ?: 0.0
-                val unit = spinnerUnit.selectedItem.toString()
-                viewModel.addItem(name, qty, unit)
-            }
-            .setNegativeButton(getString(R.string.msg_cancel), null)
-            .show()
-    }
-
-    /** Opens a dialog for editing an existing shopping item */
     private fun showEditDialog(item: ShoppingItem) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_item, null)
         val etName = dialogView.findViewById<TextInputEditText>(R.id.etItemName)
@@ -249,7 +244,7 @@ class MainActivity : AppCompatActivity() {
             spinnerUnit.adapter = adapter
         }
 
-        // In order to select the correct unit type (kg, L
+        // In order to select the correct unit type (kg, L)
         val idx = resources.getStringArray(R.array.unit_types).indexOf(item.unitType)
         if (idx >= 0) spinnerUnit.setSelection(idx)
 

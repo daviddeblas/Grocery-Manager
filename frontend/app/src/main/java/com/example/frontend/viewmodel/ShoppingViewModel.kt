@@ -60,14 +60,21 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
      * @param name The name of the item.
      * @param quantity The quantity of the item.
      * @param unit The unit type (e.g., "kg", "L", "pcs").
+     * @param sortIndex The sort index (position) for the item. If -1, use the end of the list.
      */
-    fun addItem(name: String, quantity: Double, unit: String) = viewModelScope.launch {
-        // Ensure a current list is selected.
+    fun addItem(name: String, quantity: Double, unit: String, sortIndex: Int = -1) = viewModelScope.launch {
+        // Make sure a current list is selected.
         val listId = _currentListId.value ?: return@launch
+
+        // Determine the actual sort index
+        val items = allItems.value ?: emptyList()
+        val actualSortIndex = if (sortIndex >= 0) sortIndex else items.size
+
         val newItem = ShoppingItem(
             name = name,
             quantity = quantity,
             unitType = unit,
+            sortIndex = actualSortIndex,
             listId = listId
         )
         repository.addLocalItem(newItem)

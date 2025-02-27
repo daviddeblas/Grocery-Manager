@@ -22,48 +22,67 @@
             android:scaleX="1.2"
             android:scaleY="1.2"/>
 
-        <TextView
-            android:id="@+id/tvName"
+        <EditText
+            android:id="@+id/etName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Item name"
-            android:textStyle="bold"
-            android:textSize="16sp"
             android:layout_weight="1"
-            android:layout_marginStart="8dp"/>
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:textStyle="bold"
+            android:textColor="?android:attr/textColorSecondary"
+            android:textSize="16sp"
+            android:minLines="1"
+            android:maxLines="2"
+            android:inputType="textMultiLine"
+            android:imeOptions="actionDone"
+            android:hint="Article"/>
 
         <TextView
             android:id="@+id/tvQuantityLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Quantity : "
+            android:text="Quantity:"
             android:textSize="14sp"
             android:textColor="?android:attr/textColorSecondary"
-            android:gravity="center_vertical"
-            android:layout_marginEnd="4dp"/>
+            android:gravity="center_vertical"/>
+
+        <EditText
+            android:id="@+id/etQuantityValue"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:textSize="14sp"
+            android:gravity="center_vertical|end"
+            android:layout_marginStart="2dp"
+            android:imeOptions="actionDone"
+            android:inputType="numberDecimal"/>
 
         <TextView
-            android:id="@+id/tvQuantityValue"
+            android:id="@+id/tvUnitType"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="1.50 kg"
+            android:text="kg"
             android:textSize="14sp"
-            android:gravity="center_vertical"
-            android:layout_marginEnd="8dp"/>
+            android:layout_marginStart="1dp"
+            android:layout_marginEnd="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"/>
 
         <ImageButton
             android:id="@+id/btnDecrement"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:src="@drawable/ic_minus_24dp"
             android:contentDescription="@string/decrement"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:layout_marginEnd="4dp"/>
+            android:background="?attr/selectableItemBackgroundBorderless"/>
 
         <ImageButton
             android:id="@+id/btnIncrement"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:src="@drawable/ic_add_24dp"
             android:contentDescription="@string/increment"
             android:background="?attr/selectableItemBackgroundBorderless"/>
