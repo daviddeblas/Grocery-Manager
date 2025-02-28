@@ -197,6 +197,16 @@ class ManualShoppingAdapter(
             // Configure the state of the checkbox and its listener
             cbDone.setOnCheckedChangeListener(null)
             cbDone.isChecked = item.isChecked
+
+            // When item is checked -> strike through text and fade it
+            if (item.isChecked) {
+                etName.paintFlags = etName.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                etName.alpha = 0.6f  // Make text appear faded
+            } else {
+                etName.paintFlags = etName.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+                etName.alpha = 1.0f  // Normal appearance
+            }
+
             cbDone.setOnCheckedChangeListener { _, isChecked ->
                 onCheckChange(item, isChecked)
             }
