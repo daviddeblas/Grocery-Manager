@@ -33,6 +33,14 @@ interface ShoppingItemDao {
     @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY isChecked ASC, name ASC")
     fun getAllByChecked(listId: Int): LiveData<List<ShoppingItem>>
 
+    // Check if there are any unchecked items in any list
+    @Query("SELECT EXISTS(SELECT 1 FROM shopping_items WHERE isChecked = 0 LIMIT 1)")
+    suspend fun hasUncheckedItems(): Boolean
+
+    // Count of all items and unchecked items in a list
+    @Query("SELECT COUNT(*) FROM shopping_items WHERE listId = :listId AND isChecked = 0")
+    suspend fun countUncheckedItemsByList(listId: Int): Int
+
     @Query("DELETE FROM shopping_items WHERE listId = :listId")
     suspend fun deleteAllFromList(listId: Int)
 }
@@ -52,7 +60,6 @@ interface ShoppingListDao {
     @Query("SELECT * FROM shopping_lists")
     fun getAllLists(): LiveData<List<ShoppingList>>
 
-    // Nouveau : requête « directe »
     @Query("SELECT * FROM shopping_lists")
     suspend fun getAllListsOnce(): List<ShoppingList>
 }

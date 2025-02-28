@@ -14,4 +14,7 @@ interface StoreLocationDao {
 
     @Query("SELECT * FROM store_locations")
     fun getAllStores(): LiveData<List<StoreLocation>>
+
+    @Query("SELECT * FROM store_locations WHERE geofenceId = :geofenceId LIMIT 1")
+    suspend fun getStoreByGeofenceId(geofenceId: String): StoreLocation?
 }

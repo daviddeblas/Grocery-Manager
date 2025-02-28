@@ -46,6 +46,12 @@ class ShoppingRepository(context: Context) {
         }
     }
 
+    suspend fun hasUncheckedItems(): Boolean {
+        return withContext(Dispatchers.IO) {
+            itemDao.hasUncheckedItems()
+        }
+    }
+
     // Lists
 
     val allLists: LiveData<List<ShoppingList>> = listDao.getAllLists()

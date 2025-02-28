@@ -24,4 +24,10 @@ class StoreLocationRepository(context: Context) {
             storeDao.delete(store)
         }
     }
+
+    suspend fun getStoreByGeofenceId(geofenceId: String): StoreLocation? {
+        return withContext(Dispatchers.IO) {
+            storeDao.getStoreByGeofenceId(geofenceId)
+        }
+    }
 }
