@@ -17,9 +17,6 @@
             <item
                 android:id="@+id/menu_sort_quantity"
                 android:title="@string/by_quantity" />
-            <item
-                android:id="@+id/menu_sort_picked"
-                android:title="@string/picked_first" />
         </menu>
     </item>
 

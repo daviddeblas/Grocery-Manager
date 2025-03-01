@@ -267,10 +267,6 @@ class MainActivity : AppCompatActivity() {
                 viewModel.setSortMode(SortMode.QUANTITY)
                 true
             }
-            R.id.menu_sort_picked -> {
-                viewModel.setSortMode(SortMode.CHECKED)
-                true
-            }
             else -> super.onOptionsItemSelected(item)
         }
     }
