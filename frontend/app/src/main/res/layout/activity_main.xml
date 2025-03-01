@@ -25,6 +25,27 @@
             app:titleTextColor="@color/white" />
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- Check all button -->
+    <LinearLayout
+        android:id="@+id/actionsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="start"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <Button
+            android:id="@+id/btnCheckAll"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Check All"
+            android:textSize="14sp"
+            android:textColor="?attr/colorPrimary" />
+    </LinearLayout>
+
     <!-- RecyclerView -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
@@ -32,6 +53,7 @@
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:padding="16dp"
+        android:layout_marginTop="48dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
     <!-- Text if no article -->

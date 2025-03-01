@@ -41,6 +41,16 @@ class DragSwipeCallback(
 
         val fromPos = viewHolder.bindingAdapterPosition
         val toPos = target.bindingAdapterPosition
+
+        // Prevent moving checked items or moving items to positions occupied by checked items
+        if (fromPos < adapter.items.size && toPos < adapter.items.size) {
+            val fromItem = adapter.items[fromPos]
+            val toItem = adapter.items[toPos]
+            if (fromItem.isChecked || toItem.isChecked) {
+                return false
+            }
+        }
+
         adapter.moveItemInList(fromPos, toPos)
         return true
     }

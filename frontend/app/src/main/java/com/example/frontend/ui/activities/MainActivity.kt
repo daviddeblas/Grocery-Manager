@@ -7,6 +7,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
+import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
@@ -56,6 +57,9 @@ class MainActivity : AppCompatActivity() {
 
         // RecyclerView = allows to display a list of items
         setupRecyclerView()
+
+        // Setup buttons for checking/unchecking all items
+        setupCheckAllButtons()
 
         // For automatic refresh of the UI when the data changes (LiveData)
         setupObservers()
@@ -131,6 +135,35 @@ class MainActivity : AppCompatActivity() {
             }
         )
         recyclerView.adapter = manualAdapter
+    }
+
+    private fun setupCheckAllButtons() {
+        val btnCheckAll = findViewById<Button>(R.id.btnCheckAll)
+
+        btnCheckAll.setOnClickListener {
+            val hasUncheckedItems = originalList.any { !it.isChecked }
+
+            if (hasUncheckedItems) {
+                // Check all elements
+                for (item in originalList) {
+                    if (!item.isChecked) {
+                        viewModel.updateItem(item.copy(isChecked = true))
+                    }
+                }
+                btnCheckAll.setText("Uncheck All")
+            } else {
+                // Uncheck all elements
+                for (item in originalList) {
+                    if (item.isChecked) {
+                        viewModel.updateItem(item.copy(isChecked = false))
+                    }
+                }
+                btnCheckAll.setText("Check All")
+            }
+
+            // Manually refresh the adapter after update
+            manualAdapter.setData(originalList)
+        }
     }
 
     /** Observes the LiveData from the ViewModel and updates the UI accordingly */
