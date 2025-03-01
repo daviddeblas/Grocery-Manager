@@ -20,13 +20,13 @@ interface ShoppingItemDao {
     @Update
     suspend fun update(item: ShoppingItem)
 
-    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY sortIndex ASC")
+    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY isChecked ASC, sortIndex ASC")
     fun getAllByManualOrder(listId: Int): LiveData<List<ShoppingItem>>
 
-    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY dateCreated DESC")
+    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY isChecked ASC, dateCreated DESC")
     fun getAllByDate(listId: Int): LiveData<List<ShoppingItem>>
 
-    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY quantity DESC")
+    @Query("SELECT * FROM shopping_items WHERE listId = :listId ORDER BY isChecked ASC, quantity DESC")
     fun getAllByQuantity(listId: Int): LiveData<List<ShoppingItem>>
 
     // In order to sort the items already picked by the user, we put them last
