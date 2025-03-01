@@ -175,7 +175,14 @@ class ManualShoppingAdapter(
 
             // Added a click listener on the unit type
             tvUnitType.setOnClickListener {
-                cycleUnitType(item)
+                // Add a feedback animation
+                tvUnitType.animate()
+                    .alpha(0.5f)
+                    .setDuration(100)
+                    .withEndAction {
+                        cycleUnitType(item)
+                        tvUnitType.animate().alpha(1.0f).setDuration(100)
+                    }
             }
 
             // Configuring the listener for quantity
@@ -240,8 +247,14 @@ class ManualShoppingAdapter(
 
         private fun saveNameChanges() {
             if (!isUpdating && currentItem != null) {
-                val newName = etName.text.toString().trim()
+                var newName = etName.text.toString().trim()
                 if (newName.isNotEmpty() && newName != currentItem?.name) {
+                    // Transform the first letter into uppercase
+                    if (newName.length > 1) {
+                        newName = newName.substring(0, 1).uppercase() + newName.substring(1)
+                    } else {
+                        newName = newName.uppercase()
+                    }
                     onNameChanged(currentItem!!, newName)
                 }
             }
@@ -284,6 +297,10 @@ class ManualShoppingAdapter(
         private val imgAddItem: ImageView = itemView.findViewById(R.id.imgAddItem)
 
         fun bind() {
+            // Configure the field to transform the first letter into uppercase
+            etNewItem.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+
             etNewItem.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
                     addNewItem()
@@ -302,8 +319,14 @@ class ManualShoppingAdapter(
         }
 
         private fun addNewItem() {
-            val itemName = etNewItem.text.toString().trim()
+            var itemName = etNewItem.text.toString().trim()
             if (itemName.isNotEmpty()) {
+                if (itemName.length > 1) {
+                    itemName = itemName.substring(0, 1).uppercase() + itemName.substring(1)
+                } else {
+                    itemName = itemName.uppercase()
+                }
+
                 onAddNewItem(itemName)
                 etNewItem.text.clear()
                 etNewItem.clearFocus()

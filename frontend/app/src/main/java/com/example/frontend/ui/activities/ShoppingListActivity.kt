@@ -288,12 +288,21 @@ class ShoppingListActivity : AppCompatActivity() {
 
     private fun showAddListDialog() {
         val input = EditText(this)
+
+        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+
         MaterialAlertDialogBuilder(this)
             .setTitle("New Shopping List")
             .setView(input)
             .setPositiveButton("Create") { _, _ ->
-                val name = input.text.toString()
+                var name = input.text.toString()
                 if (name.isNotBlank()) {
+                    if (name.length > 1) {
+                        name = name.substring(0, 1).uppercase() + name.substring(1)
+                    } else {
+                        name = name.uppercase()
+                    }
                     viewModel.addList(name)
                 }
             }
@@ -302,8 +311,9 @@ class ShoppingListActivity : AppCompatActivity() {
     }
 
     private fun confirmAndDeleteList(list: ShoppingList) {
-        viewModel.allLists.observe(this) { lists ->
-            if (lists.size <= 1) {
+        val currentLists = viewModel.allLists.value ?: emptyList()
+
+        if (currentLists.size <= 1) {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("Cannot delete")
                     .setMessage("You must keep at least one list.")
@@ -314,12 +324,17 @@ class ShoppingListActivity : AppCompatActivity() {
                     .setTitle("Delete this list?")
                     .setMessage("Are you sure you want to delete \"${list.name}\"?")
                     .setPositiveButton("Delete") { _, _ ->
-                        viewModel.deleteList(list)
+                        val finalCount = viewModel.allLists.value?.size ?: 0
+                        if (finalCount > 1) {
+                            viewModel.deleteList(list)
+                        } else {
+                            Toast.makeText(this, "Cannot delete the last list", Toast.LENGTH_SHORT).show()
+                        }
                     }
                     .setNegativeButton("Cancel", null)
                     .show()
             }
-        }
+
     }
 
     // ------------------------------------------------------
