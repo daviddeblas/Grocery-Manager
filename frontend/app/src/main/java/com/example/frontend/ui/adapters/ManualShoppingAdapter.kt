@@ -125,20 +125,38 @@ class ManualShoppingAdapter(
 
         // To avoid recursive callbacks during editing
         private var isUpdating = false
-        private var currentItem: ShoppingItem? = null
+
+        // The actual item from the database
+        private var originalItem: ShoppingItem? = null
+
+        // Tracks all pending changes during edition
+        private var workingItem: ShoppingItem? = null
 
         fun bind(item: ShoppingItem) {
-            currentItem = item
+            // Store the original item and create a working copy
+            originalItem = item
+            workingItem = item.copy()
 
             // Editable name configuration
             isUpdating = true
-            etName.setText(item.name)
+            etName.setText(workingItem?.name)
             isUpdating = false
 
-            // Listener configuration for name
+            // Listen for name changes in real-time
+            etName.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    if (!isUpdating && s != null) {
+                        val newName = s.toString().trim()
+                        workingItem = workingItem?.copy(name = newName)
+                    }
+                }
+            })
+
             etName.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    saveNameChanges()
+                    commitNameChange()
                     etName.clearFocus()
                     hideKeyboard(etName.context, etName)
                     true
@@ -147,19 +165,17 @@ class ManualShoppingAdapter(
 
             etName.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
-                    saveNameChanges()
+                    commitNameChange()
                 }
             }
 
+            // Quantity and unit type setup
             tvQuantityLabel.text = itemView.context.getString(R.string.quantity_label)
 
-            // Translating the stored unit
             val localizedUnitType = unitHelper.translateUnit(item.unitType)
-
             val isUnitItem = unitHelper.normalizeUnit(item.unitType) == UnitHelper.UNIT_TYPE_UNIT
             val decimals = if (isUnitItem) 0 else 2
 
-            // Round the quantity value
             val big = BigDecimal(item.quantity).setScale(decimals, RoundingMode.HALF_UP)
             val qtyStr = big.toPlainString()
 
@@ -170,35 +186,16 @@ class ManualShoppingAdapter(
             // Adjust margins based on unit type
             val layoutParams = etQuantityValue.layoutParams as? ViewGroup.MarginLayoutParams
             if (layoutParams != null) {
-                if (isUnitItem) {
-                    // For units: reduce the left margin
-                    layoutParams.marginStart = -60
-                } else {
-                    // For kg, L: normal margin
-                    layoutParams.marginStart = 2
-                }
+                layoutParams.marginStart = if (isUnitItem) -60 else 2
                 etQuantityValue.layoutParams = layoutParams
             }
 
-            // Afficher l'unité traduite
             tvUnitType.text = " $localizedUnitType"
 
-            // Added a click listener on the unit type
-            tvUnitType.setOnClickListener {
-                // Add a feedback animation
-                tvUnitType.animate()
-                    .alpha(0.5f)
-                    .setDuration(100)
-                    .withEndAction {
-                        val nextUnit = unitHelper.getNextUnit(item.unitType)
-                        onUnitTypeChanged(item, nextUnit)
-                        tvUnitType.animate().alpha(1.0f).setDuration(100)
-                    }
-            }
-
-            // Configuring the listener for quantity
+            // Set up change listeners for quantity
             etQuantityValue.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    commitNameChange() // Save name if changed
                     saveQuantityChanges(decimals)
                     etQuantityValue.clearFocus()
                     hideKeyboard(etQuantityValue.context, etQuantityValue)
@@ -208,6 +205,7 @@ class ManualShoppingAdapter(
 
             etQuantityValue.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
+                    commitNameChange() // Save name if changed
                     saveQuantityChanges(decimals)
                 }
             }
@@ -226,57 +224,92 @@ class ManualShoppingAdapter(
             }
 
             cbDone.setOnCheckedChangeListener { _, isChecked ->
-                onCheckChange(item, isChecked)
+                commitNameChange() // Before each action, save the name
+                onCheckChange(originalItem!!, isChecked)
             }
 
-            itemView.setOnClickListener { onItemClick(item) }
+            itemView.setOnClickListener {
+                commitNameChange()
+                onItemClick(originalItem!!)
+            }
 
-            // Configure decrement button.
+            // Unit type cycling
+            tvUnitType.setOnClickListener {
+                commitNameChange()
+
+                tvUnitType.animate()
+                    .alpha(0.5f)
+                    .setDuration(100)
+                    .withEndAction {
+                        val nextUnit = unitHelper.getNextUnit(originalItem!!.unitType)
+                        onUnitTypeChanged(originalItem!!, nextUnit)
+                        tvUnitType.animate().alpha(1.0f).setDuration(100)
+                    }
+            }
+
+            // Configure decrement button
             btnDecrement.setOnClickListener {
-                val step = when (unitHelper.normalizeUnit(item.unitType)) {
+                commitNameChange()
+
+                val step = when (unitHelper.normalizeUnit(originalItem!!.unitType)) {
                     UnitHelper.UNIT_TYPE_UNIT -> 1.0
                     else -> 0.1
                 }
-                val raw = (item.quantity - step).coerceAtLeast(0.0)
+                val raw = (originalItem!!.quantity - step).coerceAtLeast(0.0)
                 val rounded = BigDecimal(raw).setScale(decimals, RoundingMode.HALF_UP)
-                onQuantityChanged(item, rounded.toDouble())
+                onQuantityChanged(originalItem!!, rounded.toDouble())
             }
 
             // Configure increment button
             btnIncrement.setOnClickListener {
-                val step = when (unitHelper.normalizeUnit(item.unitType)) {
+                commitNameChange()
+
+                val step = when (unitHelper.normalizeUnit(originalItem!!.unitType)) {
                     UnitHelper.UNIT_TYPE_UNIT -> 1.0
                     else -> 0.1
                 }
-                val raw = item.quantity + step
+                val raw = originalItem!!.quantity + step
                 val rounded = BigDecimal(raw).setScale(decimals, RoundingMode.HALF_UP)
-                onQuantityChanged(item, rounded.toDouble())
+                onQuantityChanged(originalItem!!, rounded.toDouble())
             }
         }
 
-        private fun saveNameChanges() {
-            if (!isUpdating && currentItem != null) {
-                var newName = etName.text.toString().trim()
-                if (newName.isNotEmpty() && newName != currentItem?.name) {
-                    // Transform the first letter into uppercase
-                    if (newName.length > 1) {
-                        newName = newName.substring(0, 1).uppercase() + newName.substring(1)
+        // Commits name changes before any other action
+        private fun commitNameChange() {
+            if (!isUpdating && workingItem != null && originalItem != null) {
+                val newName = workingItem!!.name.trim()
+
+                if (newName.isNotEmpty() && newName != originalItem!!.name) {
+                    // Capitalize first letter
+                    val formattedName = if (newName.length > 1) {
+                        newName.substring(0, 1).uppercase() + newName.substring(1)
                     } else {
-                        newName = newName.uppercase()
+                        newName.uppercase()
                     }
-                    onNameChanged(currentItem!!, newName)
+
+                    // Update the database first
+                    onNameChanged(originalItem!!, formattedName)
+
+                    // Update model
+                    originalItem = originalItem!!.copy(name = formattedName)
+                    workingItem = workingItem!!.copy(name = formattedName)
+
+                    // Update UI
+                    isUpdating = true
+                    etName.setText(formattedName)
+                    isUpdating = false
                 }
             }
         }
 
         private fun saveQuantityChanges(decimals: Int) {
-            if (!isUpdating && currentItem != null) {
+            if (!isUpdating && originalItem != null) {
                 val newQtyText = etQuantityValue.text.toString()
                 val newQty = newQtyText.toDoubleOrNull() ?: return
 
-                if (newQty != currentItem?.quantity) {
+                if (newQty != originalItem!!.quantity) {
                     val rounded = BigDecimal(newQty).setScale(decimals, RoundingMode.HALF_UP).toDouble()
-                    onQuantityChanged(currentItem!!, rounded)
+                    onQuantityChanged(originalItem!!, rounded)
                 }
             }
         }
@@ -297,7 +330,6 @@ class ManualShoppingAdapter(
         private val imgAddItem: ImageView = itemView.findViewById(R.id.imgAddItem)
 
         fun bind() {
-            // Configure the field to transform the first letter into uppercase
             etNewItem.inputType = android.text.InputType.TYPE_CLASS_TEXT or
                     android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
 
@@ -332,7 +364,6 @@ class ManualShoppingAdapter(
                 etNewItem.clearFocus()
                 hideKeyboard(etNewItem.context, etNewItem)
             } else {
-                // If the field is empty, simply give focus
                 etNewItem.requestFocus()
                 showKeyboard(etNewItem.context, etNewItem)
             }
