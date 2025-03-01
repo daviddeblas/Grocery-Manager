@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="unit_types">
-        <item>units</item>
+        <item>unités</item>
         <item>kg</item>
         <item>L</item>
     </string-array>

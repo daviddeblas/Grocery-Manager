@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.example.frontend.R
 import com.example.frontend.notification.NotificationHelper
 import com.example.frontend.repository.ShoppingRepository
 import com.example.frontend.repository.StoreLocationRepository
@@ -73,9 +74,9 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val store = storeRepo.getStoreByGeofenceId(geofenceId)
 
         val message = if (store != null) {
-            "You are near ${store.name}! Don't forget your shopping list."
+            context.getString(R.string.near_store_with_name, store.name)
         } else {
-            "You are near a store! Don't forget your shopping list."
+            context.getString(R.string.near_store_without_name)
         }
 
         // Send the notification

@@ -14,6 +14,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.frontend.R
 import com.example.frontend.data.model.ShoppingItem
+import com.example.frontend.utils.UnitHelper
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -37,18 +38,22 @@ class ManualShoppingAdapter(
     }
 
     val items = mutableListOf<ShoppingItem>()
-    private val unitTypes = arrayOf("pcs", "kg", "L")
+    private lateinit var unitHelper: UnitHelper
 
     override fun getItemViewType(position: Int): Int {
         return if (position == items.size) TYPE_ADD else TYPE_ITEM
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        if (!::unitHelper.isInitialized) {
+            unitHelper = UnitHelper(parent.context)
+        }
+
         return when (viewType) {
             TYPE_ITEM -> {
                 val view = LayoutInflater.from(parent.context)
                     .inflate(R.layout.shopping_item, parent, false)
-                ItemViewHolder(view, onItemClick, onCheckChange, onQuantityChanged, onNameChanged, onUnitTypeChanged, unitTypes)
+                ItemViewHolder(view, onItemClick, onCheckChange, onQuantityChanged, onNameChanged, onUnitTypeChanged, unitHelper)
             }
             TYPE_ADD -> {
                 val view = LayoutInflater.from(parent.context)
@@ -107,7 +112,7 @@ class ManualShoppingAdapter(
         private val onQuantityChanged: (ShoppingItem, Double) -> Unit,
         private val onNameChanged: (ShoppingItem, String) -> Unit,
         private val onUnitTypeChanged: (ShoppingItem, String) -> Unit,
-        private val unitTypes: Array<String>
+        private val unitHelper: UnitHelper
     ) : RecyclerView.ViewHolder(itemView) {
 
         private val cbDone: CheckBox = itemView.findViewById(R.id.cbDone)
@@ -146,32 +151,37 @@ class ManualShoppingAdapter(
                 }
             }
 
-            tvQuantityLabel.text = "Quantity:"
+            tvQuantityLabel.text = itemView.context.getString(R.string.quantity_label)
 
-            val decimals = if (item.unitType == "pcs") 0 else 2
-            // Round the quantity value.
+            // Translating the stored unit
+            val localizedUnitType = unitHelper.translateUnit(item.unitType)
+
+            val isUnitItem = unitHelper.normalizeUnit(item.unitType) == UnitHelper.UNIT_TYPE_UNIT
+            val decimals = if (isUnitItem) 0 else 2
+
+            // Round the quantity value
             val big = BigDecimal(item.quantity).setScale(decimals, RoundingMode.HALF_UP)
             val qtyStr = big.toPlainString()
 
             isUpdating = true
-            // Display the quantity with its unit.
             etQuantityValue.setText(qtyStr)
             isUpdating = false
 
             // Adjust margins based on unit type
             val layoutParams = etQuantityValue.layoutParams as? ViewGroup.MarginLayoutParams
             if (layoutParams != null) {
-                if (item.unitType == "pcs") {
-                    // For pcs: reduce the left margin to bring the text closer to the label
+                if (isUnitItem) {
+                    // For units: reduce the left margin
                     layoutParams.marginStart = -60
                 } else {
-                    // For kg, L: restore the normal margin
+                    // For kg, L: normal margin
                     layoutParams.marginStart = 2
                 }
                 etQuantityValue.layoutParams = layoutParams
             }
 
-            tvUnitType.text = " ${item.unitType}"
+            // Afficher l'unité traduite
+            tvUnitType.text = " $localizedUnitType"
 
             // Added a click listener on the unit type
             tvUnitType.setOnClickListener {
@@ -180,7 +190,8 @@ class ManualShoppingAdapter(
                     .alpha(0.5f)
                     .setDuration(100)
                     .withEndAction {
-                        cycleUnitType(item)
+                        val nextUnit = unitHelper.getNextUnit(item.unitType)
+                        onUnitTypeChanged(item, nextUnit)
                         tvUnitType.animate().alpha(1.0f).setDuration(100)
                     }
             }
@@ -222,10 +233,9 @@ class ManualShoppingAdapter(
 
             // Configure decrement button.
             btnDecrement.setOnClickListener {
-                val step = when (item.unitType) {
-                    "pcs" -> 1.0
-                    "kg", "L" -> 0.1
-                    else -> 1.0
+                val step = when (unitHelper.normalizeUnit(item.unitType)) {
+                    UnitHelper.UNIT_TYPE_UNIT -> 1.0
+                    else -> 0.1
                 }
                 val raw = (item.quantity - step).coerceAtLeast(0.0)
                 val rounded = BigDecimal(raw).setScale(decimals, RoundingMode.HALF_UP)
@@ -234,10 +244,9 @@ class ManualShoppingAdapter(
 
             // Configure increment button
             btnIncrement.setOnClickListener {
-                val step = when (item.unitType) {
-                    "pcs" -> 1.0
-                    "kg", "L" -> 0.1
-                    else -> 1.0
+                val step = when (unitHelper.normalizeUnit(item.unitType)) {
+                    UnitHelper.UNIT_TYPE_UNIT -> 1.0
+                    else -> 0.1
                 }
                 val raw = item.quantity + step
                 val rounded = BigDecimal(raw).setScale(decimals, RoundingMode.HALF_UP)
@@ -270,15 +279,6 @@ class ManualShoppingAdapter(
                     onQuantityChanged(currentItem!!, rounded)
                 }
             }
-        }
-
-        // In order to switch directly from pcs -> kg -> L
-        private fun cycleUnitType(item: ShoppingItem) {
-            val currentIndex = unitTypes.indexOf(item.unitType)
-            val nextIndex = (currentIndex + 1) % unitTypes.size
-            // Get the new unit type
-            val newUnitType = unitTypes[nextIndex]
-            onUnitTypeChanged(item, newUnitType)
         }
 
         private fun hideKeyboard(context: Context, view: View) {

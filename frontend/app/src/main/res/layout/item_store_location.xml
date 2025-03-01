@@ -25,14 +25,14 @@
                 android:id="@+id/tvStoreName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Store Name"
+                android:text="@string/store_name"
                 android:textAppearance="?attr/textAppearanceHeadline6" />
 
             <TextView
                 android:id="@+id/tvStoreAddress"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Store Address"
+                android:text="@string/store_address"
                 android:textAppearance="?attr/textAppearanceBody2" />
         </LinearLayout>
 

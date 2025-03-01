@@ -23,6 +23,7 @@ import com.example.frontend.data.model.SortMode
 import com.example.frontend.ui.adapters.ManualShoppingAdapter
 import com.example.frontend.utils.DragSwipeCallback
 import com.example.frontend.utils.KeyboardUtils
+import com.example.frontend.utils.UnitHelper
 import com.example.frontend.viewmodel.ShoppingViewModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -106,7 +107,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupToolbar() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
-        supportActionBar?.title = "Grocery Manager"
+        supportActionBar?.title = getString(R.string.app_name)
     }
 
     /** Initializes the current list ID or a default if none is provided */
@@ -128,6 +129,8 @@ class MainActivity : AppCompatActivity() {
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
+        val unitHelper = UnitHelper(this)
+
         manualAdapter = ManualShoppingAdapter(
             onItemClick = { item -> showEditDialog(item) },
             onCheckChange = { item, isChecked ->
@@ -140,7 +143,10 @@ class MainActivity : AppCompatActivity() {
                 viewModel.updateItem(item.copy(name = newName))
             },
             onUnitTypeChanged = { item, newUnitType ->
-                val newQty = if (newUnitType == "pcs" && item.unitType != "pcs") {
+                val isNewUnitType = unitHelper.normalizeUnit(newUnitType) == UnitHelper.UNIT_TYPE_UNIT
+                val wasUnitType = unitHelper.normalizeUnit(item.unitType) == UnitHelper.UNIT_TYPE_UNIT
+
+                val newQty = if (isNewUnitType && !wasUnitType) {
                     Math.round(item.quantity).toDouble()
                 } else {
                     item.quantity
@@ -148,8 +154,8 @@ class MainActivity : AppCompatActivity() {
                 viewModel.updateItem(item.copy(unitType = newUnitType, quantity = newQty))
             },
             onAddNewItem = { name ->
-                // Add a new element with default values
-                viewModel.addItem(name, 1.0, "pcs")
+                val defaultUnit = unitHelper.getLocalizedUnitName(UnitHelper.UNIT_TYPE_UNIT)
+                viewModel.addItem(name, 1.0, defaultUnit)
             }
         )
         recyclerView.adapter = manualAdapter
@@ -168,7 +174,7 @@ class MainActivity : AppCompatActivity() {
                         viewModel.updateItem(item.copy(isChecked = true))
                     }
                 }
-                btnCheckAll.setText("Uncheck All")
+                btnCheckAll.setText(R.string.uncheck_all)
             } else {
                 // Uncheck all elements
                 for (item in originalList) {
@@ -176,7 +182,7 @@ class MainActivity : AppCompatActivity() {
                         viewModel.updateItem(item.copy(isChecked = false))
                     }
                 }
-                btnCheckAll.setText("Check All")
+                btnCheckAll.setText(R.string.check_all)
             }
 
             // Manually refresh the adapter after update
@@ -217,8 +223,8 @@ class MainActivity : AppCompatActivity() {
             adapter = manualAdapter,
             onSwiped = { removedItem ->
                 viewModel.deleteItem(removedItem)
-                Snackbar.make(recyclerView, "Deleted: ${removedItem.name}", Snackbar.LENGTH_LONG)
-                    .setAction("Undo") {
+                Snackbar.make(recyclerView, getString(R.string.deleted_item, removedItem.name), Snackbar.LENGTH_LONG)
+                    .setAction(R.string.undo) {
                         viewModel.addItem(removedItem.name, removedItem.quantity, removedItem.unitType)
                     }
                     .show()
@@ -296,15 +302,15 @@ class MainActivity : AppCompatActivity() {
         if (idx >= 0) spinnerUnit.setSelection(idx)
 
         val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle("Edit Item")
+            .setTitle(R.string.edit_item)
             .setView(dialogView)
-            .setPositiveButton("Save") { _, _ ->
+            .setPositiveButton(R.string.save) { _, _ ->
                 val newName = etName.text?.toString().orEmpty()
                 val newQty = etQuantity.text?.toString()?.toDoubleOrNull() ?: 0.0
                 val newUnit = spinnerUnit.selectedItem.toString()
                 viewModel.updateItem(item.copy(name = newName, quantity = newQty, unitType = newUnit))
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.msg_cancel, null)
             .create()
 
         // Configure the window to adjust when the keyboard appears

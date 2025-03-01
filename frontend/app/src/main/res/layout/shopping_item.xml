@@ -37,13 +37,13 @@
             android:maxLines="2"
             android:inputType="textMultiLine"
             android:imeOptions="actionDone"
-            android:hint="Article"/>
+            android:hint="@string/article_hint"/>
 
         <TextView
             android:id="@+id/tvQuantityLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Quantity:"
+            android:text="@string/quantity_label"
             android:textSize="14sp"
             android:textColor="?android:attr/textColorSecondary"
             android:gravity="center_vertical"/>

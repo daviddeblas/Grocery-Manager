@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:layout_marginStart="16dp"
-        android:hint="Add an item"
+        android:hint="@string/add_item_hint"
         android:background="@null"
         android:imeOptions="actionDone"
         android:inputType="text"

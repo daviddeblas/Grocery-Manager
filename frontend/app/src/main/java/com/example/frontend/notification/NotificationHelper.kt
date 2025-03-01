@@ -18,7 +18,8 @@ import com.example.frontend.ui.activities.MainActivity
 class NotificationHelper(private val context: Context) {
 
     private val channelId = "geofence_channel_id"
-    private val channelName = "Geofence Notifications"
+    private val channelName = context.getString(R.string.geofence_channel_name)
+    private val channelDescription = context.getString(R.string.geofence_channel_description)
 
     init {
         createNotificationChannel()
@@ -38,7 +39,7 @@ class NotificationHelper(private val context: Context) {
             val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
             val channel = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Notifications for geofence events"
+                description = channelDescription
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 250, 250, 250)
                 enableLights(true)
@@ -67,9 +68,10 @@ class NotificationHelper(private val context: Context) {
         // Wait 0ms -> vibrate 250ms -> wait 250ms -> vibrate 250ms
         val vibrationPattern = longArrayOf(0, 250, 250, 250)
 
+        val notificationTitle = context.getString(R.string.smart_reminder)
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_add_24dp)
-            .setContentTitle("Smart Reminder")
+            .setContentTitle(notificationTitle)
             .setContentText(message)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

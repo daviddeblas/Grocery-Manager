@@ -40,12 +40,12 @@ class StoreLocationAdapter(
 
             btnDeleteStore.setOnClickListener {
                 androidx.appcompat.app.AlertDialog.Builder(itemView.context)
-                    .setTitle("Delete Store")
-                    .setMessage("Are you sure you want to delete \"${store.name}\"?")
-                    .setPositiveButton("Delete") { _, _ ->
+                    .setTitle(R.string.delete_store)
+                    .setMessage(itemView.context.getString(R.string.delete_store_confirmation, store.name))
+                    .setPositiveButton(R.string.delete_confirm) { _, _ ->
                         onDelete(store)
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(R.string.msg_cancel, null)
                     .show()
             }
         }

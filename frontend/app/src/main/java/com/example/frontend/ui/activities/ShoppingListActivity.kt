@@ -82,7 +82,7 @@ class ShoppingListActivity : AppCompatActivity() {
                             }
 
                             if (existingStore != null) {
-                                Toast.makeText(this, "Store \"$storeName\" already exists!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this,  getString(R.string.store_already_exists, storeName), Toast.LENGTH_SHORT).show()
                                 return@let
                             }
 
@@ -107,7 +107,7 @@ class ShoppingListActivity : AppCompatActivity() {
                                 200f,
                                 geofenceUniqueId
                             )
-                            Toast.makeText(this, "Store added: $storeName", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.store_added, storeName), Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -272,7 +272,7 @@ class ShoppingListActivity : AppCompatActivity() {
     private fun setupToolbar() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbarList)
         setSupportActionBar(toolbar)
-        supportActionBar?.title = "My Grocery Lists"
+        supportActionBar?.title = getString(R.string.grocery_lists_title)
     }
 
     private fun setupRecyclerView() {
@@ -293,9 +293,9 @@ class ShoppingListActivity : AppCompatActivity() {
                 android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("New Shopping List")
+            .setTitle(R.string.new_list_title)
             .setView(input)
-            .setPositiveButton("Create") { _, _ ->
+            .setPositiveButton(R.string.create) { _, _ ->
                 var name = input.text.toString()
                 if (name.isNotBlank()) {
                     if (name.length > 1) {
@@ -306,7 +306,7 @@ class ShoppingListActivity : AppCompatActivity() {
                     viewModel.addList(name)
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(R.string.msg_cancel, null)
             .show()
     }
 
@@ -315,23 +315,23 @@ class ShoppingListActivity : AppCompatActivity() {
 
         if (currentLists.size <= 1) {
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("Cannot delete")
-                    .setMessage("You must keep at least one list.")
-                    .setPositiveButton("OK", null)
+                    .setTitle(R.string.delete_list)
+                    .setMessage(getString(R.string.delete_list_confirm_message, list.name))
+                    .setPositiveButton(android.R.string.ok, null)
                     .show()
             } else {
                 MaterialAlertDialogBuilder(this)
-                    .setTitle("Delete this list?")
-                    .setMessage("Are you sure you want to delete \"${list.name}\"?")
-                    .setPositiveButton("Delete") { _, _ ->
+                    .setTitle(R.string.delete_list)
+                    .setMessage(getString(R.string.delete_list_confirm_message, list.name))
+                    .setPositiveButton(R.string.delete_confirm) { _, _ ->
                         val finalCount = viewModel.allLists.value?.size ?: 0
                         if (finalCount > 1) {
                             viewModel.deleteList(list)
                         } else {
-                            Toast.makeText(this, "Cannot delete the last list", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, R.string.last_list_error, Toast.LENGTH_SHORT).show()
                         }
                     }
-                    .setNegativeButton("Cancel", null)
+                    .setNegativeButton(R.string.msg_cancel, null)
                     .show()
             }
 

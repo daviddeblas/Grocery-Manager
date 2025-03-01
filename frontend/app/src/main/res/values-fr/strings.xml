@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App général -->
+    <string name="app_name">Gestionnaire de Courses</string>
+    <string name="search">Rechercher</string>
+    <string name="sort">Trier</string>
+
+    <!-- Messages divers -->
+    <string name="empty_message">Appuyez sur le bouton + pour ajouter un article</string>
+    <string name="cannot_delete_list">Impossible de supprimer</string>
+    <string name="must_keep_one_list">Vous devez conserver au moins une liste.</string>
+    <string name="delete_confirm">Supprimer</string>
+    <string name="delete_list_confirm_message">Êtes-vous sûr de vouloir supprimer \"%1$s\"?</string>
+    <string name="last_list_error">Impossible de supprimer la dernière liste</string>
+    <string name="store_added">Magasin ajouté: %1$s</string>
+    <string name="store_already_exists">Le magasin \"%1$s\" existe déjà!</string>
+
+    <!-- Écran liste d'achats -->
+    <string name="grocery_lists_title">Mes Listes de Courses</string>
+    <string name="new_list_title">Nouvelle Liste de Courses</string>
+    <string name="create">Créer</string>
+    <string name="check_all">Tout Cocher</string>
+    <string name="uncheck_all">Tout Décocher</string>
+
+    <!-- Actions sur les articles -->
+    <string name="add_item">Ajouter un article</string>
+    <string name="delete_item">Supprimer un article</string>
+    <string name="edit_item">Modifier l\'article</string>
+    <string name="save">Enregistrer</string>
+    <string name="deleted_item">Article supprimé: %1$s</string>
+    <string name="undo">Annuler</string>
+    <string name="article_hint">Article</string>
+    <string name="quantity_label">Quantité:</string>
+    <string name="add_item_hint">Ajouter un article</string>
+
+    <!-- Champs et labels -->
+    <string name="hint_item_name">Nom de l\'article</string>
+    <string name="hint_quantity">Quantité</string>
+    <string name="title_add_dialog">Ajouter un article</string>
+    <string name="msg_add">Ajouter</string>
+    <string name="msg_cancel">Annuler</string>
+    <string name="increment">Augmenter</string>
+    <string name="decrement">Diminuer</string>
+
+    <!-- Options de tri -->
+    <string name="by_quantity">Par Quantité</string>
+    <string name="newest_first">Plus récents d\'abord</string>
+    <string name="manual_order">Ordre Manuel</string>
+
+    <!-- Listes et magasins -->
+    <string name="delete_list">Supprimer la liste</string>
+    <string name="list_name_placeholder">Nom de la liste</string>
+    <string name="stores_title">Magasins</string>
+    <string name="add_list">Ajouter une liste</string>
+    <string name="manage_stores">Gérer les magasins</string>
+    <string name="store_name">Nom du magasin</string>
+    <string name="store_address">Adresse du magasin</string>
+    <string name="delete_store">Supprimer le magasin</string>
+    <string name="delete_store_confirmation">Êtes-vous sûr de vouloir supprimer \"%1$s\"?</string>
+    <string name="store_icon_desc">Icône du magasin</string>
+
+    <!-- Notifications -->
+    <string name="geofence_channel_name">Rappels de Magasins</string>
+    <string name="geofence_channel_description">Notifications pour les événements de géorepérage</string>
+    <string name="smart_reminder">Rappel Intelligent</string>
+    <string name="near_store_with_name">Vous êtes près de %1$s! N\'oubliez pas votre liste de courses.</string>
+    <string name="near_store_without_name">Vous êtes près d\'un magasin! N\'oubliez pas votre liste de courses.</string>
+</resources>

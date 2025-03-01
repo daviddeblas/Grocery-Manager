@@ -1,26 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- General app -->
     <string name="app_name">Grocery Manager</string>
+    <string name="search">Search</string>
+    <string name="sort">Sort</string>
+
+    <!-- Various messages -->
+    <string name="empty_message">Press the + button to add an item</string>
+    <string name="cannot_delete_list">Cannot delete</string>
+    <string name="must_keep_one_list">You must keep at least one list.</string>
+    <string name="delete_confirm">Delete</string>
+    <string name="delete_list_confirm_message">Are you sure you want to delete \"%1$s\"?</string>
+    <string name="last_list_error">Cannot delete the last list</string>
+    <string name="store_added">Store added: %1$s</string>
+    <string name="store_already_exists">Store \"%1$s\" already exists!</string>
+
+    <!-- Shopping list screen -->
+    <string name="grocery_lists_title">My Grocery Lists</string>
+    <string name="new_list_title">New Shopping List</string>
+    <string name="create">Create</string>
+    <string name="check_all">Check All</string>
+    <string name="uncheck_all">Uncheck All</string>
+
+    <!-- Item actions -->
     <string name="add_item">Add an item</string>
     <string name="delete_item">Delete an item</string>
+    <string name="edit_item">Edit Item</string>
+    <string name="save">Save</string>
+    <string name="deleted_item">Deleted: %1$s</string>
+    <string name="undo">Undo</string>
+    <string name="article_hint">Article</string>
+    <string name="quantity_label">Quantity:</string>
+    <string name="add_item_hint">Add an item</string>
+
+    <!-- Fields and labels -->
     <string name="hint_item_name">Item name</string>
     <string name="hint_quantity">Quantity</string>
-
     <string name="title_add_dialog">Add an item</string>
-
-    <string name="msg_add">Add </string>
+    <string name="msg_add">Add</string>
     <string name="msg_cancel">Cancel</string>
-    <string name="empty_message">Press the + button to add an item</string>
-
     <string name="increment">Increment</string>
     <string name="decrement">Decrement</string>
-    <string name="picked_first">Picked Last</string>
+
+    <!-- Sorting options -->
     <string name="by_quantity">By Quantity</string>
     <string name="newest_first">Newest First</string>
     <string name="manual_order">Manual Order</string>
-    <string name="search">Search</string>
-    <string name="sort">Sort</string>
-    <string name="delete_list">Delete list</string>
 
-    <string name="google_maps_key">MY_GOOGLE_MAPS_KEY</string>
+    <!-- Lists and stores -->
+    <string name="delete_list">Delete list</string>
+    <string name="list_name_placeholder">Name of the list</string>
+    <string name="stores_title">Stores</string>
+    <string name="add_list">Add List</string>
+    <string name="manage_stores">Manage Stores</string>
+    <string name="store_name">Store Name</string>
+    <string name="store_address">Store Address</string>
+    <string name="delete_store">Delete Store</string>
+    <string name="delete_store_confirmation">Are you sure you want to delete \"%1$s\"?</string>
     <string name="store_icon_desc">Store icon</string>
+
+    <!-- Notifications -->
+    <string name="geofence_channel_name">Store Reminders</string>
+    <string name="geofence_channel_description">Notifications for geofence events</string>
+    <string name="smart_reminder">Smart Reminder</string>
+    <string name="near_store_with_name">You are near %1$s! Don\'t forget your shopping list.</string>
+    <string name="near_store_without_name">You are near a store! Don\'t forget your shopping list.</string>
+
+    <!-- Do not translate -->
+    <string name="google_maps_key" translatable="false">MY_GOOGLE_MAPS_KEY</string>
 </resources>
