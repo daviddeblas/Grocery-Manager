@@ -22,6 +22,7 @@ import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.SortMode
 import com.example.frontend.ui.adapters.ManualShoppingAdapter
 import com.example.frontend.utils.DragSwipeCallback
+import com.example.frontend.utils.KeyboardUtils
 import com.example.frontend.viewmodel.ShoppingViewModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var manualAdapter: ManualShoppingAdapter
     private var itemTouchHelper: ItemTouchHelper? = null
+    private lateinit var keyboardUtils: KeyboardUtils
 
     // Data variables
     private var originalList: List<ShoppingItem> = emptyList()
@@ -63,7 +65,23 @@ class MainActivity : AppCompatActivity() {
 
         // For automatic refresh of the UI when the data changes (LiveData)
         setupObservers()
+
+        // Setup the keyboard behavior for the activity
+        setupKeyboardBehavior()
     }
+
+    private fun setupKeyboardBehavior() {
+        keyboardUtils = KeyboardUtils(this, recyclerView)
+        keyboardUtils.setup()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::keyboardUtils.isInitialized) {
+            keyboardUtils.cleanup()
+        }
+    }
+
 
     /**
      * Hide the keyboard when clicked outside of an EditText element.
@@ -281,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         val idx = resources.getStringArray(R.array.unit_types).indexOf(item.unitType)
         if (idx >= 0) spinnerUnit.setSelection(idx)
 
-        MaterialAlertDialogBuilder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle("Edit Item")
             .setView(dialogView)
             .setPositiveButton("Save") { _, _ ->
@@ -291,6 +309,24 @@ class MainActivity : AppCompatActivity() {
                 viewModel.updateItem(item.copy(name = newName, quantity = newQty, unitType = newUnit))
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create()
+
+        // Configure the window to adjust when the keyboard appears
+        dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+
+        // Add event handlers to ensure fields are not obfuscated
+        etName.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+            }
+        }
+
+        etQuantity.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN)
+            }
+        }
+
+        dialog.show()
     }
 }
