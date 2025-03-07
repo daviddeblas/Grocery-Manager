@@ -6,10 +6,13 @@ import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.ShoppingList
 import com.example.frontend.data.model.SortMode
 import com.example.frontend.data.model.StoreLocation
+import com.example.frontend.data.model.SyncStatus
 import com.example.frontend.repository.ShoppingRepository
 import com.example.frontend.repository.StoreLocationRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.time.LocalDateTime
+import java.util.UUID
 
 /**
  * ShoppingViewModel is responsible for managing the UI-related data for shopping lists and items.
@@ -75,7 +78,10 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
             quantity = quantity,
             unitType = unit,
             sortIndex = actualSortIndex,
-            listId = listId
+            listId = listId,
+            syncId = UUID.randomUUID().toString(),
+            syncStatus = SyncStatus.LOCAL_ONLY,
+            updatedAt = LocalDateTime.now()
         )
         repository.addLocalItem(newItem)
     }

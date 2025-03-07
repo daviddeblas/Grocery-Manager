@@ -33,6 +33,12 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import java.util.UUID
+import androidx.lifecycle.lifecycleScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.example.frontend.services.SyncScheduler
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * ShoppingListActivity manages shopping lists and geofenced store locations.
@@ -177,6 +183,11 @@ class ShoppingListActivity : AppCompatActivity() {
             // Update the adapter's list when data changes.
             shoppingListAdapter.submitList(lists)
         }
+
+        // Configuring swipe to refresh
+        setupSwipeRefresh()
+
+        observeSyncState()
     }
 
     private fun requestAllPermissionsChained() {
@@ -304,6 +315,8 @@ class ShoppingListActivity : AppCompatActivity() {
                         name = name.uppercase()
                     }
                     viewModel.addList(name)
+                    // Trigger a sync after adding
+                    SyncScheduler.requestImmediateSync(this)
                 }
             }
             .setNegativeButton(R.string.msg_cancel, null)
@@ -371,5 +384,52 @@ class ShoppingListActivity : AppCompatActivity() {
             tvStoresTitle.visibility = visibility
             recyclerViewStores.visibility = visibility
         }
+    }
+
+    private fun setupSwipeRefresh() {
+        val swipeRefreshLayout = findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipeRefreshLayout)
+
+        // Définir les couleurs du spinner de chargement
+        swipeRefreshLayout.setColorSchemeResources(
+            R.color.purple_500,
+            R.color.teal_200,
+            R.color.purple_700
+        )
+
+        // Configurer le listener de rafraîchissement
+        swipeRefreshLayout.setOnRefreshListener {
+            lifecycleScope.launch {
+                try {
+                    // Demander une synchronisation immédiate
+                    SyncScheduler.requestImmediateSync(this@ShoppingListActivity)
+
+                    // Attendre un moment pour donner l'impression que quelque chose se passe
+                    delay(1000)
+                } finally {
+                    // Toujours masquer l'indicateur de rafraîchissement
+                    swipeRefreshLayout.isRefreshing = false
+                }
+            }
+        }
+    }
+
+    private fun observeSyncState() {
+        // Afficher un toast ou une notification quand la synchronisation est terminée
+        WorkManager.getInstance(this).getWorkInfosForUniqueWorkLiveData(SyncScheduler.SYNC_WORK_NAME)
+            .observe(this) { workInfos ->
+                workInfos?.firstOrNull()?.let { workInfo ->
+                    when (workInfo.state) {
+                        WorkInfo.State.SUCCEEDED -> {
+                            Toast.makeText(this, R.string.sync_success, Toast.LENGTH_SHORT).show()
+                        }
+                        WorkInfo.State.FAILED -> {
+                            Toast.makeText(this, R.string.sync_failed, Toast.LENGTH_SHORT).show()
+                        }
+                        else -> {
+                            // Ignorer les autres états
+                        }
+                    }
+                }
+            }
     }
 }

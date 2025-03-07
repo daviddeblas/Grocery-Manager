@@ -1,6 +1,7 @@
 package com.example.frontend.ui.activities
 
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -11,24 +12,32 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.frontend.R
+import com.example.frontend.api.APIClient
+import com.example.frontend.api.model.LoginRequest
+import com.example.frontend.api.model.SignupRequest
 import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.SortMode
+import com.example.frontend.services.SyncScheduler
 import com.example.frontend.ui.adapters.ManualShoppingAdapter
 import com.example.frontend.utils.DragSwipeCallback
 import com.example.frontend.utils.KeyboardUtils
+import com.example.frontend.utils.SessionManager
 import com.example.frontend.utils.UnitHelper
 import com.example.frontend.viewmodel.ShoppingViewModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class MainActivity : AppCompatActivity() {
@@ -52,6 +61,11 @@ class MainActivity : AppCompatActivity() {
         // Set up the title and ensure the toolbar is below the status bar !
         setupToolbar()
 
+        // Ajoutez un bouton pour tester l'authentification (optionnel)
+        findViewById<Button>(R.id.btnTestAuth)?.setOnClickListener {
+            testAuthentication()
+        }
+
         // It allows to keep the data if the activity is destroyed or recreated
         viewModel = ViewModelProvider(this)[ShoppingViewModel::class.java]
 
@@ -69,6 +83,65 @@ class MainActivity : AppCompatActivity() {
 
         // Setup the keyboard behavior for the activity
         setupKeyboardBehavior()
+    }
+
+    private fun testAuthentication() {
+        lifecycleScope.launch {
+            try {
+                // Afficher un message de test
+                Toast.makeText(this@MainActivity, "Test d'authentification...", Toast.LENGTH_SHORT).show()
+
+                // 1. Tester l'inscription
+                val signupResponse = try {
+                    APIClient.authService.register(SignupRequest("testuser", "test@example.com", "password123"))
+                } catch (e: Exception) {
+                    Log.e("AUTH_TEST", "Erreur d'inscription: ${e.message}")
+                    Toast.makeText(this@MainActivity, "Erreur d'inscription: ${e.message}", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                Log.d("AUTH_TEST", "Réponse d'inscription: ${signupResponse.isSuccessful}")
+
+                // 2. Tester la connexion
+                val loginResponse = try {
+                    APIClient.authService.login(LoginRequest("testuser", "password123"))
+                } catch (e: Exception) {
+                    Log.e("AUTH_TEST", "Erreur de connexion: ${e.message}")
+                    Toast.makeText(this@MainActivity, "Erreur de connexion: ${e.message}", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+
+                if (loginResponse.isSuccessful) {
+                    val jwtResponse = loginResponse.body()
+                    Log.d("AUTH_TEST", "Token: ${jwtResponse?.token?.take(20)}...")
+
+                    // Sauvegarder les tokens
+                    SessionManager.saveTokens(jwtResponse?.token ?: "", jwtResponse?.refreshToken ?: "")
+
+                    // 3. Tester un appel protégé
+                    try {
+                        val listsResponse = APIClient.shoppingListService.getAllLists()
+                        Log.d("AUTH_TEST", "Listes récupérées: ${listsResponse.isSuccessful}")
+                        Toast.makeText(this@MainActivity,
+                            "Test réussi! Listes: ${listsResponse.body()?.size ?: 0}",
+                            Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Log.e("AUTH_TEST", "Erreur d'accès aux listes: ${e.message}")
+                        Toast.makeText(this@MainActivity,
+                            "Erreur d'accès aux listes: ${e.message}",
+                            Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    Log.e("AUTH_TEST", "Échec de connexion: ${loginResponse.code()}")
+                    Toast.makeText(this@MainActivity,
+                        "Échec de connexion: ${loginResponse.code()}",
+                        Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e("AUTH_TEST", "Erreur globale: ${e.message}")
+                Toast.makeText(this@MainActivity, "Erreur globale: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun setupKeyboardBehavior() {
@@ -135,12 +208,18 @@ class MainActivity : AppCompatActivity() {
             onItemClick = { item -> showEditDialog(item) },
             onCheckChange = { item, isChecked ->
                 viewModel.updateItem(item.copy(isChecked = isChecked))
+                // Déclencher la synchronisation après une mise à jour
+                SyncScheduler.requestImmediateSync(this)
             },
             onQuantityChanged = { item, newQty ->
                 viewModel.updateItem(item.copy(quantity = newQty))
+                // Déclencher la synchronisation après une mise à jour
+                SyncScheduler.requestImmediateSync(this)
             },
             onNameChanged = { item, newName ->
                 viewModel.updateItem(item.copy(name = newName))
+                // Déclencher la synchronisation après une mise à jour
+                SyncScheduler.requestImmediateSync(this)
             },
             onUnitTypeChanged = { item, newUnitType ->
                 val isNewUnitType = unitHelper.normalizeUnit(newUnitType) == UnitHelper.UNIT_TYPE_UNIT
@@ -152,10 +231,14 @@ class MainActivity : AppCompatActivity() {
                     item.quantity
                 }
                 viewModel.updateItem(item.copy(unitType = newUnitType, quantity = newQty))
+                // Déclencher la synchronisation après une mise à jour
+                SyncScheduler.requestImmediateSync(this)
             },
             onAddNewItem = { name ->
                 val defaultUnit = unitHelper.getLocalizedUnitName(UnitHelper.UNIT_TYPE_UNIT)
                 viewModel.addItem(name, 1.0, defaultUnit)
+                // Déclencher la synchronisation après l'ajout
+                SyncScheduler.requestImmediateSync(this)
             }
         )
         recyclerView.adapter = manualAdapter
@@ -226,14 +309,20 @@ class MainActivity : AppCompatActivity() {
                 Snackbar.make(recyclerView, getString(R.string.deleted_item, removedItem.name), Snackbar.LENGTH_LONG)
                     .setAction(R.string.undo) {
                         viewModel.addItem(removedItem.name, removedItem.quantity, removedItem.unitType)
+                        // Sync après le rétablissement
+                        SyncScheduler.requestImmediateSync(this)
                     }
                     .show()
+                // Sync après la suppression
+                SyncScheduler.requestImmediateSync(this)
             },
             onReorderDone = {
                 // Update sortIndex for each item after reordering
                 for ((index, item) in manualAdapter.items.withIndex()) {
                     viewModel.updateItem(item.copy(sortIndex = index))
                 }
+                // Sync après réorganisation
+                SyncScheduler.requestImmediateSync(this)
             }
         )
         itemTouchHelper = ItemTouchHelper(callback)
@@ -309,6 +398,8 @@ class MainActivity : AppCompatActivity() {
                 val newQty = etQuantity.text?.toString()?.toDoubleOrNull() ?: 0.0
                 val newUnit = spinnerUnit.selectedItem.toString()
                 viewModel.updateItem(item.copy(name = newName, quantity = newQty, unitType = newUnit))
+                // Trigger a sync after modification
+                SyncScheduler.requestImmediateSync(this)
             }
             .setNegativeButton(R.string.msg_cancel, null)
             .create()

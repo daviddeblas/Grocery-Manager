@@ -6,9 +6,12 @@ import com.example.frontend.data.db.AppDatabase
 import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.ShoppingList
 import com.example.frontend.data.model.SortMode
+import com.example.frontend.data.model.SyncStatus
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
+import java.util.UUID
 
 class ShoppingRepository(context: Context) {
 
@@ -19,20 +22,42 @@ class ShoppingRepository(context: Context) {
     // Articles
 
     suspend fun addLocalItem(item: ShoppingItem) {
+        return withContext(Dispatchers.IO) {
+            val itemWithSyncId = if (item.syncId == null) {
+                item.copy(
+                    syncId = UUID.randomUUID().toString(),
+                    syncStatus = SyncStatus.LOCAL_ONLY,
+                    updatedAt = LocalDateTime.now()
+                )
+            } else {
+                item
+            }
+            itemDao.insert(itemWithSyncId).toInt()
+        }
+    }
+
+
+    suspend fun updateLocalItem(item: ShoppingItem) {
         withContext(Dispatchers.IO) {
-            itemDao.insert(item)
+            // If already synced, mark as locally modified
+            val syncStatus = if (item.syncStatus == SyncStatus.SYNCED)
+                SyncStatus.MODIFIED_LOCALLY
+            else
+                item.syncStatus
+
+            val updatedItem = item.copy(
+                syncStatus = syncStatus,
+                updatedAt = LocalDateTime.now()
+            )
+            itemDao.update(updatedItem)
         }
     }
 
     suspend fun deleteLocalItem(item: ShoppingItem) {
         withContext(Dispatchers.IO) {
+            // If the article has already been synced, we should mark its deletion
+            // in a deletion table to send it to the server later
             itemDao.delete(item)
-        }
-    }
-
-    suspend fun updateLocalItem(item: ShoppingItem) {
-        withContext(Dispatchers.IO) {
-            itemDao.update(item)
         }
     }
 
@@ -56,9 +81,30 @@ class ShoppingRepository(context: Context) {
 
     val allLists: LiveData<List<ShoppingList>> = listDao.getAllLists()
 
-    suspend fun addList(name: String) {
+    suspend fun addList(name: String): Int {
+        return withContext(Dispatchers.IO) {
+            val list = ShoppingList(
+                name = name,
+                syncId = UUID.randomUUID().toString(),
+                syncStatus = SyncStatus.LOCAL_ONLY,
+                updatedAt = LocalDateTime.now()
+            )
+            listDao.insert(list).toInt()
+        }
+    }
+
+    suspend fun updateList(list: ShoppingList) {
         withContext(Dispatchers.IO) {
-            listDao.insert(ShoppingList(name = name))
+            val syncStatus = if (list.syncStatus == SyncStatus.SYNCED)
+                SyncStatus.MODIFIED_LOCALLY
+            else
+                list.syncStatus
+
+            val updatedList = list.copy(
+                syncStatus = syncStatus,
+                updatedAt = LocalDateTime.now()
+            )
+            listDao.update(updatedList)
         }
     }
 
