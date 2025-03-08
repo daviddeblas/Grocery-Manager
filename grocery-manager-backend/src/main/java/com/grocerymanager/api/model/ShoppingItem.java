@@ -15,7 +15,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "shopping_items")
+@Table(name = "shopping_items", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_shopping_items_sync_id", columnNames = "sync_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -51,7 +53,9 @@ public class ShoppingItem {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(name = "sync_id", unique = true)
     private String syncId;
+
     private LocalDateTime lastSynced;
 
     // For managing synchronization conflicts

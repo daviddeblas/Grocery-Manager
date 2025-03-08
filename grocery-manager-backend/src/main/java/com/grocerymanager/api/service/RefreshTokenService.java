@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
+
 @Service
 public class RefreshTokenService {
     @Value("${jwt.refresh-expiration}")
@@ -22,12 +24,27 @@ public class RefreshTokenService {
     private UserRepository userRepository;
 
     public RefreshToken createRefreshToken(Long userId) {
-        RefreshToken refreshToken = new RefreshToken();
+        // Check if a token already exists for this user
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUser(
+                userRepository.findById(userId).get()
+        );
 
-        refreshToken.setUser(userRepository.findById(userId).get());
-        refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
-        refreshToken.setToken(UUID.randomUUID().toString());
+        RefreshToken refreshToken;
 
+        if (existingToken.isPresent()) {
+            // Update existing token with new expiry and token value
+            refreshToken = existingToken.get();
+            refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
+            refreshToken.setToken(UUID.randomUUID().toString());
+        } else {
+            // Create new token if one doesn't exist
+            refreshToken = new RefreshToken();
+            refreshToken.setUser(userRepository.findById(userId).get());
+            refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
+            refreshToken.setToken(UUID.randomUUID().toString());
+        }
+
+        // Save the token (both for new and updated tokens)
         refreshToken = refreshTokenRepository.save(refreshToken);
         return refreshToken;
     }
