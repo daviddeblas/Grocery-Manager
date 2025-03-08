@@ -38,6 +38,9 @@ class GroceryManagerApplication : Application() {
             if (SessionManager.isLoggedIn()) {
                 Log.d(TAG, "User is logged in, scheduling sync work")
                 SyncScheduler.scheduleSyncWork(this)
+
+                // Ajouter cette ligne pour déclencher une synchronisation immédiate au démarrage
+                SyncScheduler.requestImmediateSync(this)
             } else {
                 Log.d(TAG, "User is not logged in, skipping sync scheduling")
             }

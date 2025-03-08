@@ -12,6 +12,7 @@ import com.example.frontend.databinding.ActivityLoginBinding
 import com.example.frontend.ui.activities.ShoppingListActivity
 import com.example.frontend.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
+import com.example.frontend.services.SyncScheduler
 
 class LoginActivity : AppCompatActivity() {
 
@@ -83,6 +84,10 @@ class LoginActivity : AppCompatActivity() {
                 result.fold(
                     onSuccess = {
                         Toast.makeText(this@LoginActivity, R.string.login_success, Toast.LENGTH_SHORT).show()
+
+                        // Déclencher une synchronisation immédiate après la connexion
+                        SyncScheduler.requestImmediateSync(this@LoginActivity)
+
                         navigateToMain()
                     },
                     onFailure = { e ->

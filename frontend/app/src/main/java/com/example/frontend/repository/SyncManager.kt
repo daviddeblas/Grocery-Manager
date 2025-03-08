@@ -69,9 +69,12 @@ class SyncManager(private val context: Context) {
             )
 
             // 2. Appeler l'API de synchronisation
-            val response = syncService.synchronize(syncRequest)
-
-
+            val response = try {
+                syncService.synchronize(syncRequest)
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors de l'appel à l'API de synchronisation", e)
+                return@withContext Result.failure(e)
+            }
 
             if (!response.isSuccessful) {
                 // Si erreur 401, tenter de rafraîchir le token
@@ -84,7 +87,12 @@ class SyncManager(private val context: Context) {
                         Log.d(TAG, "Token rafraîchi avec succès, reprise de la synchronisation")
 
                         // Réessayer la synchronisation avec le nouveau token
-                        val retryResponse = syncService.synchronize(syncRequest)
+                        val retryResponse = try {
+                            syncService.synchronize(syncRequest)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Erreur lors de la seconde tentative de synchronisation", e)
+                            return@withContext Result.failure(e)
+                        }
 
                         if (!retryResponse.isSuccessful) {
                             Log.e(TAG, "Échec de la synchronisation après rafraîchissement du token: ${retryResponse.code()}")
@@ -96,8 +104,10 @@ class SyncManager(private val context: Context) {
                         // Marquer les éléments supprimés comme synchronisés
                         if (deletedItems.isNotEmpty()) {
                             val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
-                            db.deletedItemDao().markAsSynced(deletedItemIds)
-                            db.deletedItemDao().deleteSyncedItems()
+                            if (deletedItemIds.isNotEmpty()) {
+                                db.deletedItemDao().markAsSynced(deletedItemIds)
+                                db.deletedItemDao().deleteSyncedItems()
+                            }
                         }
 
                         return@withContext Result.success(true)
@@ -116,33 +126,42 @@ class SyncManager(private val context: Context) {
             )
 
             // 3. Traiter la réponse du serveur
-            processServerResponse(syncResponse)
+            try {
+                processServerResponse(syncResponse)
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors du traitement de la réponse du serveur", e)
+                // Continuer malgré l'erreur pour ne pas perdre les données déjà synchronisées
+            }
 
             // 4. Marquer les éléments comme synchronisés
-            markListsAsSynced(localLists.mapNotNull { it.syncId })
-            markItemsAsSynced(localItems.mapNotNull { it.syncId })
-            markStoresAsSynced(localStores.mapNotNull { it.syncId })
+            try {
+                markListsAsSynced(localLists.mapNotNull { it.syncId })
+                markItemsAsSynced(localItems.mapNotNull { it.syncId })
+                markStoresAsSynced(localStores.mapNotNull { it.syncId })
+            } catch (e: Exception) {
+                Log.e(TAG, "Erreur lors du marquage des éléments comme synchronisés", e)
+                // Continuer malgré l'erreur
+            }
 
-            if (response.isSuccessful) {
-                // Traiter la réponse
-                processServerResponse(syncResponse)
-
-                // Marquer les éléments supprimés comme synchronisés
-                if (deletedItems.isNotEmpty()) {
+            // 5. Traiter les éléments supprimés
+            if (deletedItems.isNotEmpty()) {
+                try {
                     val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
                     if (deletedItemIds.isNotEmpty()) {
                         Log.d(TAG, "Marquage de ${deletedItemIds.size} éléments supprimés comme synchronisés")
                         db.deletedItemDao().markAsSynced(deletedItemIds)
                         db.deletedItemDao().deleteSyncedItems()
                     }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erreur lors de la gestion des éléments supprimés", e)
+                    // Continuer malgré l'erreur
                 }
-
-                return@withContext Result.success(true)
             }
 
+            Log.d(TAG, "Synchronisation terminée avec succès")
             return@withContext Result.success(true)
         } catch (e: Exception) {
-            Log.e(TAG, "Erreur de synchronisation", e)
+            Log.e(TAG, "Erreur globale de synchronisation", e)
             return@withContext Result.failure(e)
         }
     }
