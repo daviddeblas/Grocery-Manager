@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -41,6 +42,7 @@ public class ShoppingItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shopping_list_id", nullable = false)
+    @ToString.Exclude
     private ShoppingList shoppingList;
 
     @CreationTimestamp

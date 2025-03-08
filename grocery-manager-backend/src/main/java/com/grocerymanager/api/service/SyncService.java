@@ -1,10 +1,6 @@
 package com.grocerymanager.api.service;
 
-import com.grocerymanager.api.dto.ShoppingItemDto;
-import com.grocerymanager.api.dto.ShoppingListDto;
-import com.grocerymanager.api.dto.StoreLocationDto;
-import com.grocerymanager.api.dto.SyncRequest;
-import com.grocerymanager.api.dto.SyncResponse;
+import com.grocerymanager.api.dto.*;
 import com.grocerymanager.api.model.ShoppingItem;
 import com.grocerymanager.api.model.ShoppingList;
 import com.grocerymanager.api.model.StoreLocation;
@@ -48,6 +44,11 @@ public class SyncService {
     public SyncResponse synchronize(SyncRequest request, User user) {
         LocalDateTime syncTime = LocalDateTime.now();
         LocalDateTime clientLastSync = request.getLastSyncTimestamp();
+
+        if (request.getDeletedItems() != null && !request.getDeletedItems().isEmpty()) {
+            processDeletedItems(request.getDeletedItems(), user);
+        }
+
 
         // Grocery lists
         List<ShoppingListDto> updatedLists = syncShoppingLists(request.getShoppingLists(), user, syncTime);
@@ -135,8 +136,19 @@ public class SyncService {
         }
 
         for (ShoppingItemDto itemDto : clientItems) {
+            // If list ID is -1, search for user's first list
+            if (itemDto.getShoppingListId() <= 0) {
+                List<ShoppingList> userLists = listRepository.findAllByUser(user);
+                if (!userLists.isEmpty()) {
+                    ShoppingList defaultList = userLists.get(0);
+                    itemDto.setShoppingListId(defaultList.getId());
+                } else {
+                    // Unable to find a list, ignoring this item
+                    continue;
+                }
+            }
+
             // Case 1: Item without ID and without syncID (new item on the client)
-            // Create a new item with a new syncID and add it to the result
             if (itemDto.getId() == null && (itemDto.getSyncId() == null || itemDto.getSyncId().isEmpty())) {
                 Optional<ShoppingList> list = listRepository.findById(itemDto.getShoppingListId());
                 if (list.isPresent() && list.get().getUser().getId().equals(user.getId())) {
@@ -161,7 +173,6 @@ public class SyncService {
                     }
 
                     // Check if customer data is more recent
-                    // If the client data is more recent, update the item and add it to the result
                     if (itemDto.getUpdatedAt() != null &&
                             (item.getUpdatedAt() == null || itemDto.getUpdatedAt().isAfter(item.getUpdatedAt()))) {
                         item.setName(itemDto.getName());
@@ -173,7 +184,7 @@ public class SyncService {
                         item.setLastSynced(syncTime);
                         result.add(itemService.convertToDto(itemRepository.save(item)));
                     } else {
-                        // Server data is more recent or of same date, so we return the server version
+                        // Server data is more recent or of same date
                         result.add(itemService.convertToDto(item));
                     }
                 } else {
@@ -212,6 +223,29 @@ public class SyncService {
         }
 
         for (StoreLocationDto storeDto : clientStores) {
+            // First check by geofenceId which is unique
+            Optional<StoreLocation> storeByGeofence = storeRepository.findByGeofenceId(storeDto.getGeofenceId());
+
+            // If found by geofenceId, update this store rather than create a new one
+            if (storeByGeofence.isPresent() && storeByGeofence.get().getUser().getId().equals(user.getId())) {
+                StoreLocation store = storeByGeofence.get();
+                store.setName(storeDto.getName());
+                store.setAddress(storeDto.getAddress());
+                store.setLatitude(storeDto.getLatitude());
+                store.setLongitude(storeDto.getLongitude());
+                store.setUpdatedAt(syncTime);
+                store.setLastSynced(syncTime);
+
+                // If syncId was not set, set it now
+                if (store.getSyncId() == null && storeDto.getSyncId() != null) {
+                    store.setSyncId(storeDto.getSyncId());
+                }
+
+                result.add(storeService.convertToDto(storeRepository.save(store)));
+                continue;
+            }
+
+
             // Case 1: Store without ID and without syncID (new store on the client)
             // Create a new store with a new syncID and add it to the result
             if (storeDto.getId() == null && (storeDto.getSyncId() == null || storeDto.getSyncId().isEmpty())) {
@@ -355,5 +389,47 @@ public class SyncService {
         }
 
         return result;
+    }
+
+    private void processDeletedItems(List<DeletedItemDto> deletedItems, User user) {
+        if (deletedItems == null || deletedItems.isEmpty()) {
+            return;
+        }
+
+        System.out.println("Traitement de " + deletedItems.size() + " éléments supprimés");
+
+        for (DeletedItemDto item : deletedItems) {
+            switch (item.getEntityType()) {
+                case "SHOPPING_ITEM":
+                    if (item.getSyncId() != null) {
+                        System.out.println("  - Type: " + item.getEntityType() + ", SyncID: " + item.getSyncId());
+                        itemRepository.findBySyncId(item.getSyncId())
+                                .ifPresent(foundItem -> {
+                                    // Vérifier que l'élément appartient à l'utilisateur
+                                    if (foundItem.getShoppingList().getUser().getId().equals(user.getId())) {
+                                        itemRepository.delete(foundItem);
+                                    }
+                                });
+                    }
+                    break;
+
+                case "SHOPPING_LIST":
+                    if (item.getSyncId() != null) {
+                        listRepository.findBySyncIdAndUser(item.getSyncId(), user)
+                                .ifPresent(listRepository::delete);
+                    }
+                    break;
+
+                case "STORE_LOCATION":
+                    if (item.getSyncId() != null) {
+                        storeRepository.findBySyncIdAndUser(item.getSyncId(), user)
+                                .ifPresent(storeRepository::delete);
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
     }
 }

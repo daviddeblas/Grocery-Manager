@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Optional;
 
 @Aspect
 @Component
@@ -36,14 +38,24 @@ public class LoggingAspect {
             params = params.replaceAll("password=[^,\\]]*", "password=[REDACTED]");
         }
 
-        logger.info("→ Method called: {}.{}() with  params: {}", className, methodName, params);
+        logger.info("→ Method called: {}.{}() with params: {}", className, methodName, params);
 
         long start = System.currentTimeMillis();
         Object result = joinPoint.proceed();
         long duration = System.currentTimeMillis() - start;
 
         if (logger.isDebugEnabled()) {
-            String resultStr = result != null ? result.toString() : "null";
+            String resultStr;
+            if (result instanceof Optional<?>) {
+                resultStr = ((Optional<?>) result).isPresent() ? "Optional[present]" : "Optional.empty";
+            } else if (result instanceof Collection<?>) {
+                resultStr = "Collection of size " + ((Collection<?>) result).size();
+            } else if (result != null && result.getClass().getName().startsWith("com.grocerymanager.api.model")) {
+                resultStr = result.getClass().getSimpleName() + "[...]";
+            } else {
+                resultStr = result != null ? result.toString() : "null";
+            }
+
             // Truncate results that are too long
             if (resultStr.length() > 200) {
                 resultStr = resultStr.substring(0, 200) + "... (tronqué)";
