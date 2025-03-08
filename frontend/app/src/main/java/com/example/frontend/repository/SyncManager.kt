@@ -195,6 +195,9 @@ class SyncManager(private val context: Context) {
                         updatedAt = itemSync.updatedAt,
                         syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
                     ))
+                    Log.d(TAG, "Updated existing item: ${existingItem.id} (${existingItem.name}) with syncId $syncId")
+                } else {
+                    Log.d(TAG, "Item with syncId $syncId not found locally, will be added as new")
                 }
             }
         }
@@ -241,7 +244,6 @@ class SyncManager(private val context: Context) {
         processServerItems(newItems)
         processServerStores(newStores)
     }
-
 
     private suspend fun mapLocalListsToSync(): List<ShoppingListSync> {
         // Ne prendre que les listes qui ont besoin d'être synchronisées
@@ -342,12 +344,14 @@ class SyncManager(private val context: Context) {
 
     private suspend fun processServerItems(items: List<ShoppingItemSync>) {
         for (itemSync in items) {
+            // Double check that this item doesn't already exist locally
             val existingItem = itemSync.syncId?.let { syncId ->
                 shoppingItemDao.getItemBySyncId(syncId)
             }
 
             if (existingItem != null) {
-                // Mettre à jour l'article existant
+                // Item already exists, update it instead of creating a new one
+                Log.d(TAG, "Item with syncId ${itemSync.syncId} already exists locally, updating")
                 shoppingItemDao.update(
                     existingItem.copy(
                         name = itemSync.name,
@@ -361,30 +365,55 @@ class SyncManager(private val context: Context) {
                     )
                 )
             } else {
-                // Trouver la liste locale correspondante
+                // Find the corresponding local list
                 val localList = if (itemSync.shoppingListId > 0) {
                     shoppingListDao.getListByServerId(itemSync.shoppingListId)
                 } else {
-                    // Si pas d'ID serveur valide, prendre la première liste
+                    // If no valid server ID, use the first list
                     shoppingListDao.getAllListsOnce().firstOrNull()
                 }
 
                 if (localList != null) {
-                    // Créer un nouvel article
-                    shoppingItemDao.insert(
-                        ShoppingItem(
-                            name = itemSync.name,
-                            quantity = itemSync.quantity,
-                            unitType = itemSync.unitType,
-                            isChecked = itemSync.checked,
-                            sortIndex = itemSync.sortIndex,
-                            syncId = itemSync.syncId,
-                            serverId = itemSync.id,
-                            listId = localList.id,
-                            updatedAt = itemSync.updatedAt,
-                            syncStatus = SyncStatus.SYNCED
+                    try {
+                        // Create a new item
+                        Log.d(TAG, "Creating new item from server: ${itemSync.name} with syncId ${itemSync.syncId}")
+                        shoppingItemDao.insert(
+                            ShoppingItem(
+                                name = itemSync.name,
+                                quantity = itemSync.quantity,
+                                unitType = itemSync.unitType,
+                                isChecked = itemSync.checked,
+                                sortIndex = itemSync.sortIndex,
+                                syncId = itemSync.syncId,
+                                serverId = itemSync.id,
+                                listId = localList.id,
+                                updatedAt = itemSync.updatedAt,
+                                syncStatus = SyncStatus.SYNCED
+                            )
                         )
-                    )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error inserting item ${itemSync.name} with syncId ${itemSync.syncId}", e)
+                        // If insertion fails, try to update any existing item with the same name
+                        val similarItems = shoppingItemDao.getAllByShoppingListOnce(localList.id)
+                            .filter { it.name.equals(itemSync.name, ignoreCase = true) }
+
+                        if (similarItems.isNotEmpty()) {
+                            Log.d(TAG, "Found similar items with the same name, updating the first one")
+                            val itemToUpdate = similarItems.first()
+                            shoppingItemDao.update(
+                                itemToUpdate.copy(
+                                    quantity = itemSync.quantity,
+                                    unitType = itemSync.unitType,
+                                    isChecked = itemSync.checked,
+                                    sortIndex = itemSync.sortIndex,
+                                    syncId = itemSync.syncId,
+                                    serverId = itemSync.id,
+                                    updatedAt = itemSync.updatedAt,
+                                    syncStatus = SyncStatus.SYNCED
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -392,25 +421,54 @@ class SyncManager(private val context: Context) {
 
     private suspend fun processServerStores(stores: List<StoreLocationSync>) {
         for (storeSync in stores) {
-            val existingStore = storeSync.syncId?.let { syncId ->
+            // First check if the store already exists by syncId
+            var existingStore = storeSync.syncId?.let { syncId ->
                 storeLocationDao.getStoreBySyncId(syncId)
             }
 
+            // If not found by syncId, try finding by geofenceId
+            if (existingStore == null && storeSync.geofenceId.isNotEmpty()) {
+                existingStore = storeLocationDao.getStoreByGeofenceId(storeSync.geofenceId)
+            }
+
+            // If still not found, try finding by similar location (coordinates within a small range)
+            if (existingStore == null) {
+                val allStores = storeLocationDao.getAllStoresOnce()
+                existingStore = allStores.find { store ->
+                    Math.abs(store.latitude - storeSync.latitude) < 0.0001 &&
+                            Math.abs(store.longitude - storeSync.longitude) < 0.0001
+                }
+            }
+
+            // If still not found, check by similar name and address
+            if (existingStore == null) {
+                val allStores = storeLocationDao.getAllStoresOnce()
+                existingStore = allStores.find { store ->
+                    store.name.equals(storeSync.name, ignoreCase = true) &&
+                            store.address.equals(storeSync.address, ignoreCase = true)
+                }
+            }
+
             if (existingStore != null) {
-                // Mettre à jour le magasin existant
-                storeLocationDao.update(
-                    existingStore.copy(
-                        name = storeSync.name,
-                        address = storeSync.address,
-                        latitude = storeSync.latitude,
-                        longitude = storeSync.longitude,
-                        serverId = storeSync.id,
-                        updatedAt = storeSync.updatedAt,
-                        syncStatus = SyncStatus.SYNCED
-                    )
+                // Update the existing store with the server data
+                // and maintain the existing geofenceId if the server one is empty
+                val updatedStore = existingStore.copy(
+                    name = storeSync.name,
+                    address = storeSync.address,
+                    latitude = storeSync.latitude,
+                    longitude = storeSync.longitude,
+                    geofenceId = if (storeSync.geofenceId.isNotEmpty()) storeSync.geofenceId else existingStore.geofenceId,
+                    syncId = storeSync.syncId ?: existingStore.syncId,
+                    serverId = storeSync.id,
+                    updatedAt = storeSync.updatedAt,
+                    syncStatus = SyncStatus.SYNCED
                 )
+
+                Log.d(TAG, "Updating existing store: ${existingStore.id} (${existingStore.name}) with sync data")
+                storeLocationDao.update(updatedStore)
             } else {
-                // Créer un nouveau magasin
+                // Create a new store only if we're sure it doesn't exist
+                Log.d(TAG, "Creating new store from sync: ${storeSync.name}")
                 storeLocationDao.insert(
                     StoreLocation(
                         name = storeSync.name,

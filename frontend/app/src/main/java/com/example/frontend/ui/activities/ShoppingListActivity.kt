@@ -78,7 +78,6 @@ class ShoppingListActivity : AppCompatActivity() {
                         val storeName = place.name ?: ""
                         val storeAddress = place.address ?: ""
                         if (storeName.isNotBlank()) {
-
                             // Check duplicates in local DB
                             val existingStore = viewModel.allStores.value?.firstOrNull { st ->
                                 // We compare latitude/longitude (with a small margin of error)
@@ -88,11 +87,11 @@ class ShoppingListActivity : AppCompatActivity() {
                             }
 
                             if (existingStore != null) {
-                                Toast.makeText(this,  getString(R.string.store_already_exists, storeName), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, getString(R.string.store_already_exists, storeName), Toast.LENGTH_SHORT).show()
                                 return@let
                             }
 
-                            // 2) create a new store
+                            // Create a new store
                             val geofenceUniqueId = UUID.randomUUID().toString()
                             val store = StoreLocation(
                                 name = storeName,
@@ -113,6 +112,10 @@ class ShoppingListActivity : AppCompatActivity() {
                                 200f,
                                 geofenceUniqueId
                             )
+
+                            // IMPORTANT: Trigger immediate sync after adding the store
+                            SyncScheduler.requestImmediateSync(this)
+
                             Toast.makeText(this, getString(R.string.store_added, storeName), Toast.LENGTH_SHORT).show()
                         }
                     }
