@@ -47,17 +47,31 @@ class SyncManager(private val context: Context) {
             val localItems = mapLocalItemsToSync()
             val localStores = mapLocalStoresToSync()
 
-            Log.d(TAG, "Données à synchroniser: ${localLists.size} listes, ${localItems.size} articles, ${localStores.size} magasins")
+            // Récupérer les éléments supprimés
+            val deletedItems = db.deletedItemDao().getUnsyncedItems()
+            Log.d(TAG, "frontend: Items supprimés à synchroniser: ${deletedItems.size} - SyncIDs: ${deletedItems.map { it.syncId }}")
+
+            Log.d(TAG, "Données à synchroniser: ${localLists.size} listes, ${localItems.size} articles, ${localStores.size} magasins, ${deletedItems.size} éléments supprimés")
 
             val syncRequest = SyncRequest(
                 lastSyncTimestamp = SessionManager.lastSync,
                 shoppingLists = localLists,
                 shoppingItems = localItems,
-                storeLocations = localStores
+                storeLocations = localStores,
+                deletedItems = deletedItems.map {
+                    DeletedItemSync(
+                        syncId = it.syncId,
+                        originalId = it.originalId?.toLong(),
+                        entityType = it.entityType,
+                        deletedAt = it.deletedAt ?: LocalDateTime.now()
+                    )
+                }
             )
 
             // 2. Appeler l'API de synchronisation
             val response = syncService.synchronize(syncRequest)
+
+
 
             if (!response.isSuccessful) {
                 // Si erreur 401, tenter de rafraîchir le token
@@ -78,6 +92,14 @@ class SyncManager(private val context: Context) {
                         }
 
                         processServerResponse(retryResponse.body()!!)
+
+                        // Marquer les éléments supprimés comme synchronisés
+                        if (deletedItems.isNotEmpty()) {
+                            val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
+                            db.deletedItemDao().markAsSynced(deletedItemIds)
+                            db.deletedItemDao().deleteSyncedItems()
+                        }
+
                         return@withContext Result.success(true)
                     } else {
                         Log.e(TAG, "Échec du rafraîchissement du token")
@@ -97,9 +119,26 @@ class SyncManager(private val context: Context) {
             processServerResponse(syncResponse)
 
             // 4. Marquer les éléments comme synchronisés
-            markItemsAsSynced(localLists.mapNotNull { it.syncId })
+            markListsAsSynced(localLists.mapNotNull { it.syncId })
             markItemsAsSynced(localItems.mapNotNull { it.syncId })
             markStoresAsSynced(localStores.mapNotNull { it.syncId })
+
+            if (response.isSuccessful) {
+                // Traiter la réponse
+                processServerResponse(syncResponse)
+
+                // Marquer les éléments supprimés comme synchronisés
+                if (deletedItems.isNotEmpty()) {
+                    val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
+                    if (deletedItemIds.isNotEmpty()) {
+                        Log.d(TAG, "Marquage de ${deletedItemIds.size} éléments supprimés comme synchronisés")
+                        db.deletedItemDao().markAsSynced(deletedItemIds)
+                        db.deletedItemDao().deleteSyncedItems()
+                    }
+                }
+
+                return@withContext Result.success(true)
+            }
 
             return@withContext Result.success(true)
         } catch (e: Exception) {
@@ -111,6 +150,76 @@ class SyncManager(private val context: Context) {
     private suspend fun processServerResponse(syncResponse: SyncResponse) {
         Log.d(TAG, "Traitement de la réponse du serveur...")
 
+        // 1. Mettre à jour les éléments existants
+        updateExistingEntities(syncResponse)
+
+        // 2. Traiter les nouveaux éléments
+        addNewEntities(syncResponse)
+
+        // 3. Enregistrer la date de dernière synchronisation
+        SessionManager.lastSync = syncResponse.serverTimestamp
+
+        Log.d(TAG, "Synchronisation réussie, dernière synchronisation: ${syncResponse.serverTimestamp}")
+    }
+
+    private suspend fun updateExistingEntities(syncResponse: SyncResponse) {
+        // Mettre à jour les listes existantes
+        syncResponse.shoppingLists.forEach { listSync ->
+            listSync.syncId?.let { syncId ->
+                val existingList = shoppingListDao.getListBySyncId(syncId)
+                if (existingList != null) {
+                    // Mettre à jour avec les données du serveur
+                    shoppingListDao.update(existingList.copy(
+                        name = listSync.name,
+                        serverId = listSync.id,
+                        updatedAt = listSync.updatedAt,
+                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                    ))
+                }
+            }
+        }
+
+        // Mettre à jour les articles existants
+        syncResponse.shoppingItems.forEach { itemSync ->
+            itemSync.syncId?.let { syncId ->
+                val existingItem = shoppingItemDao.getItemBySyncId(syncId)
+                if (existingItem != null) {
+                    // Mettre à jour avec les données du serveur
+                    shoppingItemDao.update(existingItem.copy(
+                        name = itemSync.name,
+                        quantity = itemSync.quantity,
+                        unitType = itemSync.unitType,
+                        isChecked = itemSync.checked,
+                        sortIndex = itemSync.sortIndex,
+                        serverId = itemSync.id,
+                        updatedAt = itemSync.updatedAt,
+                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                    ))
+                }
+            }
+        }
+
+        // Mettre à jour les magasins existants
+        syncResponse.storeLocations.forEach { storeSync ->
+            storeSync.syncId?.let { syncId ->
+                val existingStore = storeLocationDao.getStoreBySyncId(syncId)
+                if (existingStore != null) {
+                    // Mettre à jour avec les données du serveur
+                    storeLocationDao.update(existingStore.copy(
+                        name = storeSync.name,
+                        address = storeSync.address,
+                        latitude = storeSync.latitude,
+                        longitude = storeSync.longitude,
+                        serverId = storeSync.id,
+                        updatedAt = storeSync.updatedAt,
+                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                    ))
+                }
+            }
+        }
+    }
+
+    private suspend fun addNewEntities(syncResponse: SyncResponse) {
         // Récupérer tous les syncIds locaux pour éviter les doublons
         val localListSyncIds = shoppingListDao.getAllListsOnce().mapNotNull { it.syncId }
         val localItemSyncIds = shoppingItemDao.getAllItemsOnce().mapNotNull { it.syncId }
@@ -131,14 +240,8 @@ class SyncManager(private val context: Context) {
         // Ensuite traiter les articles et magasins
         processServerItems(newItems)
         processServerStores(newStores)
-
-        // Enregistrer la date de dernière synchronisation
-        SessionManager.lastSync = syncResponse.serverTimestamp
-
-        Log.d(TAG, "Synchronisation réussie, dernière synchronisation: ${syncResponse.serverTimestamp}")
     }
 
-    // Fonctions de conversion des données locales vers le format de l'API
 
     private suspend fun mapLocalListsToSync(): List<ShoppingListSync> {
         // Ne prendre que les listes qui ont besoin d'être synchronisées
@@ -185,7 +288,7 @@ class SyncManager(private val context: Context) {
     private suspend fun mapLocalStoresToSync(): List<StoreLocationSync> {
         // Ne prendre que les magasins qui ont besoin d'être synchronisés
         val stores = storeLocationDao.getStoresToSync()
-
+        Log.d(TAG, "frontend: Stores à synchroniser: ${stores.size} - IDs: ${stores.map { it.id }}")
         return stores.map { store ->
             StoreLocationSync(
                 id = store.serverId,

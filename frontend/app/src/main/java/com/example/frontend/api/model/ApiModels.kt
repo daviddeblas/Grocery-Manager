@@ -42,7 +42,8 @@ data class SyncRequest(
     @SerializedName("lastSyncTimestamp") val lastSyncTimestamp: LocalDateTime?,
     @SerializedName("shoppingLists") val shoppingLists: List<ShoppingListSync>,
     @SerializedName("shoppingItems") val shoppingItems: List<ShoppingItemSync>,
-    @SerializedName("storeLocations") val storeLocations: List<StoreLocationSync>
+    @SerializedName("storeLocations") val storeLocations: List<StoreLocationSync>,
+    @SerializedName("deletedItems") val deletedItems: List<DeletedItemSync>
 )
 
 data class SyncResponse(
@@ -89,4 +90,11 @@ data class StoreLocationSync(
     @SerializedName("updatedAt") val updatedAt: LocalDateTime?,
     @SerializedName("lastSynced") val lastSynced: LocalDateTime?,
     @SerializedName("version") val version: Long?
+)
+
+data class DeletedItemSync(
+    @SerializedName("syncId") val syncId: String?,
+    @SerializedName("originalId") val originalId: Long?,
+    @SerializedName("entityType") val entityType: String,
+    @SerializedName("deletedAt") val deletedAt: LocalDateTime
 )

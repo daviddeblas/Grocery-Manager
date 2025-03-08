@@ -9,6 +9,7 @@ import com.example.frontend.data.model.StoreLocation
 import com.example.frontend.data.model.SyncStatus
 import com.example.frontend.repository.ShoppingRepository
 import com.example.frontend.repository.StoreLocationRepository
+import com.example.frontend.services.SyncScheduler
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
@@ -84,7 +85,9 @@ class ShoppingViewModel(application: Application) : AndroidViewModel(application
             updatedAt = LocalDateTime.now()
         )
         repository.addLocalItem(newItem)
+        SyncScheduler.requestImmediateSync(getApplication())
     }
+
 
     /**
      * Deletes a shopping item.

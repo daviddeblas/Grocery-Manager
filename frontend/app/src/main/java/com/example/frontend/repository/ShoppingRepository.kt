@@ -1,12 +1,14 @@
 package com.example.frontend.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.LiveData
 import com.example.frontend.data.db.AppDatabase
 import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.ShoppingList
 import com.example.frontend.data.model.SortMode
 import com.example.frontend.data.model.SyncStatus
+import com.example.frontend.data.model.DeletedItem
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,6 +20,7 @@ class ShoppingRepository(context: Context) {
     private val db = AppDatabase.getDatabase(context)
     private val itemDao = db.shoppingItemDao()
     private val listDao = db.shoppingListDao()
+    private val deletedItemDao = db.deletedItemDao()
 
     // Articles
 
@@ -55,9 +58,19 @@ class ShoppingRepository(context: Context) {
 
     suspend fun deleteLocalItem(item: ShoppingItem) {
         withContext(Dispatchers.IO) {
-            // If the article has already been synced, we should mark its deletion
-            // in a deletion table to send it to the server later
+            // Delete the item
             itemDao.delete(item)
+
+            // Register the item as deleted
+            if (item.syncId != null) {
+                val deletedItem = DeletedItem(
+                    originalId = item.id,
+                    syncId = item.syncId,
+                    entityType = "SHOPPING_ITEM"
+                )
+                deletedItemDao.insert(deletedItem)
+                Log.d("ShoppingRepo", "frontend: Item supprimé enregistré pour sync: ID=${item.id}, syncID=${item.syncId}")
+            }
         }
     }
 
@@ -110,10 +123,36 @@ class ShoppingRepository(context: Context) {
 
     suspend fun deleteList(list: ShoppingList) {
         withContext(Dispatchers.IO) {
-            // Erase all items from the list
+            // Obtenir tous les items de la liste avant de les supprimer
+            val items = itemDao.getAllByShoppingListOnce(list.id)
+
+            // Enregistrer les items supprimés avec syncId
+            for (item in items) {
+                if (item.syncId != null) {
+                    val deletedItem = DeletedItem(
+                        originalId = item.id,
+                        syncId = item.syncId,
+                        entityType = "SHOPPING_ITEM"
+                    )
+                    deletedItemDao.insert(deletedItem)
+                }
+            }
+
+            // Supprimer les items
             itemDao.deleteAllFromList(list.id)
-            // Erase the list
+
+            // Supprimer la liste
             listDao.delete(list)
+
+            // Enregistrer la suppression de la liste
+            if (list.syncId != null) {
+                val deletedItem = DeletedItem(
+                    originalId = list.id,
+                    syncId = list.syncId,
+                    entityType = "SHOPPING_LIST"
+                )
+                deletedItemDao.insert(deletedItem)
+            }
         }
     }
 

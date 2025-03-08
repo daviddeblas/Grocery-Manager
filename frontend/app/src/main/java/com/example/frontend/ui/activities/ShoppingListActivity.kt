@@ -328,8 +328,8 @@ class ShoppingListActivity : AppCompatActivity() {
 
         if (currentLists.size <= 1) {
                 MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.delete_list)
-                    .setMessage(getString(R.string.delete_list_confirm_message, list.name))
+                    .setTitle(R.string.cannot_delete_list)
+                    .setMessage(getString(R.string.must_keep_one_list))
                     .setPositiveButton(android.R.string.ok, null)
                     .show()
             } else {
@@ -340,6 +340,9 @@ class ShoppingListActivity : AppCompatActivity() {
                         val finalCount = viewModel.allLists.value?.size ?: 0
                         if (finalCount > 1) {
                             viewModel.deleteList(list)
+
+                            // Trigger immediate sync after deletion
+                            SyncScheduler.requestImmediateSync(this)
                         } else {
                             Toast.makeText(this, R.string.last_list_error, Toast.LENGTH_SHORT).show()
                         }
