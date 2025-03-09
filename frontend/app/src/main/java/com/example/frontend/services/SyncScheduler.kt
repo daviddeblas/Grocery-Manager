@@ -9,17 +9,25 @@ import androidx.work.WorkManager
 import com.example.frontend.workers.SyncWorker
 import java.util.concurrent.TimeUnit
 
+/**
+ * Responsible for scheduling periodic synchronization tasks.
+ */
 object SyncScheduler {
     const val SYNC_WORK_NAME = "synchronization_work"
 
-    // Planifier une synchronisation périodique
+    /**
+     * Schedules a periodic synchronization job.
+     * - Runs every 15 minutes to sync data with the server.
+     * - Requires an active network connection to execute.
+     * - Replaces any existing scheduled synchronization task.
+     */
     fun scheduleSyncWork(context: Context) {
-        // Contraintes: exécuter uniquement si le réseau est disponible
+        // Define constraints: only run when the device has an active network connection.
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        // Demande de travail périodique: toutes les 15 minutes
+        // Create a periodic work request
         val syncWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
             15, TimeUnit.MINUTES, // Intervalle minimum
             5, TimeUnit.MINUTES // Flexibilité
@@ -27,20 +35,15 @@ object SyncScheduler {
             .setConstraints(constraints)
             .build()
 
-        // Enregistrer le travail avec la politique de remplacement
+        // Enqueue the periodic work request, replacing any previously scheduled work.
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             SYNC_WORK_NAME,
-            ExistingPeriodicWorkPolicy.REPLACE, // Remplacer si déjà planifié
+            ExistingPeriodicWorkPolicy.UPDATE, // Update if already scheduled
             syncWorkRequest
         )
     }
 
-    // Annuler les synchronisations planifiées
-    fun cancelSyncWork(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(SYNC_WORK_NAME)
-    }
-
-    // Déclencher une synchronisation immédiate
+    // Trigger an immediate synchronization.
     fun requestImmediateSync(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)

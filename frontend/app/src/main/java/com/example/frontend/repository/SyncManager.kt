@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import java.util.*
 
-class SyncManager(private val context: Context) {
+class SyncManager(context: Context) {
     companion object {
         private const val TAG = "SyncManager"
     }
@@ -30,29 +30,32 @@ class SyncManager(private val context: Context) {
     private val authViewModel = AuthViewModel(application = context.applicationContext as android.app.Application)
 
     /**
-     * Synchronise les données locales avec le serveur
+     * Synchronizes local data with the server.
+     * - Ensures the user is logged in before proceeding.
+     * - Prepares local data for synchronization.
+     * - Calls the synchronization API and handles possible authentication issues.
+     * - Processes the server response and updates the local database accordingly.
+     * - Marks synchronized items and deleted entries as processed.
      */
     suspend fun synchronize(): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "Début de la synchronisation...")
 
-            // Vérifier si l'utilisateur est connecté
+            // 1. Ensure the user is logged in before proceeding
             if (!SessionManager.isLoggedIn()) {
-                Log.e(TAG, "Synchronisation impossible : utilisateur non connecté")
-                return@withContext Result.failure(Exception("Utilisateur non connecté"))
+                return@withContext Result.failure(Exception("User not logged in"))
             }
 
-            // 1. Préparer les données pour la synchronisation
+            // 2. Prepare data to be sent to the server
             val localLists = mapLocalListsToSync()
             val localItems = mapLocalItemsToSync()
             val localStores = mapLocalStoresToSync()
 
-            // Récupérer les éléments supprimés
+            // Retrieve locally deleted items that haven't been synced yet
             val deletedItems = db.deletedItemDao().getUnsyncedItems()
-            Log.d(TAG, "frontend: Items supprimés à synchroniser: ${deletedItems.size} - SyncIDs: ${deletedItems.map { it.syncId }}")
 
-            Log.d(TAG, "Données à synchroniser: ${localLists.size} listes, ${localItems.size} articles, ${localStores.size} magasins, ${deletedItems.size} éléments supprimés")
 
+            // Create the synchronization request payload
             val syncRequest = SyncRequest(
                 lastSyncTimestamp = SessionManager.lastSync,
                 shoppingLists = localLists,
@@ -68,40 +71,45 @@ class SyncManager(private val context: Context) {
                 }
             )
 
-            // 2. Appeler l'API de synchronisation
+            // 3. Call the sync API
             val response = try {
                 syncService.synchronize(syncRequest)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de l'appel à l'API de synchronisation", e)
+                Log.e(TAG, "Error calling sync API", e)
                 return@withContext Result.failure(e)
             }
 
+            // 4. Handle unsuccessful API responses
             if (!response.isSuccessful) {
-                // Si erreur 401, tenter de rafraîchir le token
+                //  If error 401 (Unauthorized), try refreshing the authentication token
                 if (response.code() == 401) {
-                    Log.d(TAG, "Token expiré, tentative de rafraîchissement...")
+                    Log.d(TAG, "Token expired, trying to refresh")
 
                     val refreshResult = authViewModel.refreshToken()
 
                     if (refreshResult.isSuccess) {
-                        Log.d(TAG, "Token rafraîchi avec succès, reprise de la synchronisation")
+                        Log.d(TAG, "Token refreshed successfully, sync resumed")
 
-                        // Réessayer la synchronisation avec le nouveau token
+                        // Retry synchronization with the refreshed token
                         val retryResponse = try {
                             syncService.synchronize(syncRequest)
                         } catch (e: Exception) {
-                            Log.e(TAG, "Erreur lors de la seconde tentative de synchronisation", e)
                             return@withContext Result.failure(e)
                         }
 
+                        // If retry still fails, return failure
                         if (!retryResponse.isSuccessful) {
-                            Log.e(TAG, "Échec de la synchronisation après rafraîchissement du token: ${retryResponse.code()}")
-                            return@withContext Result.failure(Exception("Échec de la synchronisation: ${retryResponse.code()}"))
+                            return@withContext Result.failure(Exception("Synchronization failed: ${retryResponse.code()}"))
                         }
 
-                        processServerResponse(retryResponse.body()!!)
+                        val body = retryResponse.body()
+                        if (body != null) {
+                            processServerResponse(body)
+                        } else {
+                            Log.e("Error", "Response body is null")
+                        }
 
-                        // Marquer les éléments supprimés comme synchronisés
+                        // Mark deleted items as synchronized
                         if (deletedItems.isNotEmpty()) {
                             val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
                             if (deletedItemIds.isNotEmpty()) {
@@ -112,98 +120,104 @@ class SyncManager(private val context: Context) {
 
                         return@withContext Result.success(true)
                     } else {
-                        Log.e(TAG, "Échec du rafraîchissement du token")
-                        return@withContext Result.failure(Exception("Échec du rafraîchissement du token"))
+                        return@withContext Result.failure(Exception("Failed to refresh token"))
                     }
                 }
 
-                Log.e(TAG, "Erreur de synchronisation: ${response.code()}")
-                return@withContext Result.failure(Exception("Erreur de synchronisation: ${response.code()}"))
+                return@withContext Result.failure(Exception("Synchronization error: ${response.code()}"))
             }
 
             val syncResponse = response.body() ?: return@withContext Result.failure(
-                Exception("Réponse de synchronisation vide")
+                Exception("Empty sync response")
             )
 
-            // 3. Traiter la réponse du serveur
+            // 5. Process the successful API response
             try {
                 processServerResponse(syncResponse)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors du traitement de la réponse du serveur", e)
-                // Continuer malgré l'erreur pour ne pas perdre les données déjà synchronisées
+                Log.e(TAG, "Error processing server response", e)
             }
 
-            // 4. Marquer les éléments comme synchronisés
+            // 6. Mark synchronized items as processed
             try {
                 markListsAsSynced(localLists.mapNotNull { it.syncId })
                 markItemsAsSynced(localItems.mapNotNull { it.syncId })
                 markStoresAsSynced(localStores.mapNotNull { it.syncId })
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors du marquage des éléments comme synchronisés", e)
-                // Continuer malgré l'erreur
+                Log.e(TAG, "Error marking items as synced", e)
             }
 
-            // 5. Traiter les éléments supprimés
+            // 7. Handle deleted items by marking them as synced and removing them from the local database
             if (deletedItems.isNotEmpty()) {
                 try {
                     val deletedItemIds = db.deletedItemDao().getUnsyncedItems().map { it.id }
                     if (deletedItemIds.isNotEmpty()) {
-                        Log.d(TAG, "Marquage de ${deletedItemIds.size} éléments supprimés comme synchronisés")
                         db.deletedItemDao().markAsSynced(deletedItemIds)
                         db.deletedItemDao().deleteSyncedItems()
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Erreur lors de la gestion des éléments supprimés", e)
-                    // Continuer malgré l'erreur
+                    Log.e(TAG, "Error while handling deleted items", e)
                 }
             }
 
-            Log.d(TAG, "Synchronisation terminée avec succès")
+            Log.d(TAG, "Synchronization completed successfully")
             return@withContext Result.success(true)
         } catch (e: Exception) {
-            Log.e(TAG, "Erreur globale de synchronisation", e)
+            Log.e(TAG, "Global synchronization error", e)
             return@withContext Result.failure(e)
         }
     }
 
+    /**
+     * Processes the server response after synchronization.
+     * - Updates existing entities based on the server data.
+     * - Adds new entities received from the server.
+     * - Saves the last synchronization timestamp for future sync operations.
+     */
     private suspend fun processServerResponse(syncResponse: SyncResponse) {
         Log.d(TAG, "Traitement de la réponse du serveur...")
 
-        // 1. Mettre à jour les éléments existants
+        // 1.  Update existing lists, items, and stores with the latest server data
         updateExistingEntities(syncResponse)
 
-        // 2. Traiter les nouveaux éléments
+        // 2. Add new lists, items, and stores that were received from the server
         addNewEntities(syncResponse)
 
-        // 3. Enregistrer la date de dernière synchronisation
+        // 3. Save the last synchronization timestamp for future sync operations
         SessionManager.lastSync = syncResponse.serverTimestamp
 
-        Log.d(TAG, "Synchronisation réussie, dernière synchronisation: ${syncResponse.serverTimestamp}")
+        Log.d(TAG, "Last sync: ${syncResponse.serverTimestamp}")
     }
 
+    /**
+     * Updates existing shopping lists, items, and store locations in the local database
+     * based on data received from the server.
+     * - If an entity exists locally (identified by syncId), it is updated with server data.
+     * - If an entity does not exist locally, it will be handled separately in `addNewEntities`.
+     */
     private suspend fun updateExistingEntities(syncResponse: SyncResponse) {
-        // Mettre à jour les listes existantes
+        //Update existing shopping lists
         syncResponse.shoppingLists.forEach { listSync ->
             listSync.syncId?.let { syncId ->
                 val existingList = shoppingListDao.getListBySyncId(syncId)
                 if (existingList != null) {
-                    // Mettre à jour avec les données du serveur
+                    // Update local list with the latest data from the server
                     shoppingListDao.update(existingList.copy(
                         name = listSync.name,
                         serverId = listSync.id,
                         updatedAt = listSync.updatedAt,
-                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                        syncStatus = SyncStatus.SYNCED  // Mark as synchronized
                     ))
                 }
             }
         }
 
-        // Mettre à jour les articles existants
+        // Update existing shopping item
         syncResponse.shoppingItems.forEach { itemSync ->
             itemSync.syncId?.let { syncId ->
                 val existingItem = shoppingItemDao.getItemBySyncId(syncId)
                 if (existingItem != null) {
-                    // Mettre à jour avec les données du serveur
+                    // Update local item with the latest data from the server
                     shoppingItemDao.update(existingItem.copy(
                         name = itemSync.name,
                         quantity = itemSync.quantity,
@@ -212,21 +226,20 @@ class SyncManager(private val context: Context) {
                         sortIndex = itemSync.sortIndex,
                         serverId = itemSync.id,
                         updatedAt = itemSync.updatedAt,
-                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                        syncStatus = SyncStatus.SYNCED  // Mark as synchronized
                     ))
-                    Log.d(TAG, "Updated existing item: ${existingItem.id} (${existingItem.name}) with syncId $syncId")
                 } else {
                     Log.d(TAG, "Item with syncId $syncId not found locally, will be added as new")
                 }
             }
         }
 
-        // Mettre à jour les magasins existants
+        // Update existing store locations
         syncResponse.storeLocations.forEach { storeSync ->
             storeSync.syncId?.let { syncId ->
                 val existingStore = storeLocationDao.getStoreBySyncId(syncId)
                 if (existingStore != null) {
-                    // Mettre à jour avec les données du serveur
+                    // Update local store with the latest data from the server
                     storeLocationDao.update(existingStore.copy(
                         name = storeSync.name,
                         address = storeSync.address,
@@ -234,38 +247,44 @@ class SyncManager(private val context: Context) {
                         longitude = storeSync.longitude,
                         serverId = storeSync.id,
                         updatedAt = storeSync.updatedAt,
-                        syncStatus = SyncStatus.SYNCED  // Important: marquer comme synchronisé
+                        syncStatus = SyncStatus.SYNCED  // Mark as synchronized
                     ))
                 }
             }
         }
     }
 
+    /**
+     * Adds new shopping lists, items, and stores received from the server to the local database.
+     * - Ensures that only new entities (not already existing locally) are added.
+     * - First processes shopping lists, then shopping items and stores to maintain relationships.
+     */
     private suspend fun addNewEntities(syncResponse: SyncResponse) {
-        // Récupérer tous les syncIds locaux pour éviter les doublons
+        // Retrieve all locally stored syncIds to avoid duplicates
         val localListSyncIds = shoppingListDao.getAllListsOnce().mapNotNull { it.syncId }
         val localItemSyncIds = shoppingItemDao.getAllItemsOnce().mapNotNull { it.syncId }
         val localStoreSyncIds = storeLocationDao.getAllStoresOnce().mapNotNull { it.syncId }
 
-        // Filtrer les listes qui n'existent pas déjà localement
+        // Filter out lists that do not exist locally
         val newLists = syncResponse.shoppingLists.filter { it.syncId !in localListSyncIds }
 
-        // Traiter d'abord les listes car les articles en dépendent
+        // Process the new lists first, as items will need a reference to a list
         processServerLists(newLists)
 
-        // Filtrer les articles et magasins qui n'existent pas déjà localement
+        //  Filter out new items and stores that are not already stored locally
         val newItems = syncResponse.shoppingItems.filter { it.syncId !in localItemSyncIds }
         val newStores = syncResponse.storeLocations.filter { it.syncId !in localStoreSyncIds }
 
-        Log.d(TAG, "Nouvelles données à ajouter: ${newLists.size} listes, ${newItems.size} articles, ${newStores.size} magasins")
-
-        // Ensuite traiter les articles et magasins
+        // Process the new items and stores
         processServerItems(newItems)
         processServerStores(newStores)
     }
 
+    /**
+     * Only selects lists that have been modified and require synchronization.
+     */
     private suspend fun mapLocalListsToSync(): List<ShoppingListSync> {
-        // Ne prendre que les listes qui ont besoin d'être synchronisées
+        // Only take lists that need to be synced
         val lists = shoppingListDao.getListsToSync()
 
         return lists.map { list ->
@@ -281,12 +300,16 @@ class SyncManager(private val context: Context) {
         }
     }
 
+    /**
+     * Ensures each item is linked to a valid shopping list.
+     * Only selects items that have been modified and require synchronization.
+     */
     private suspend fun mapLocalItemsToSync(): List<ShoppingItemSync> {
-        // Ne prendre que les articles qui ont besoin d'être synchronisés
+        // Only take items that need to be synced
         val items = shoppingItemDao.getItemsToSync()
 
         return items.map { item ->
-            // Trouver la liste à laquelle appartient cet article
+            // Find the list this item belongs to
             val list = shoppingListDao.getListById(item.listId)
 
             ShoppingItemSync(
@@ -296,7 +319,7 @@ class SyncManager(private val context: Context) {
                 unitType = item.unitType,
                 checked = item.isChecked,
                 sortIndex = item.sortIndex,
-                shoppingListId = list?.serverId ?: -1L,  // Si pas de serverId, utiliser -1 temporairement
+                shoppingListId = list?.serverId ?: -1L,
                 syncId = item.syncId ?: UUID.randomUUID().toString(),
                 createdAt = item.updatedAt ?: LocalDateTime.now(),
                 updatedAt = item.updatedAt ?: LocalDateTime.now(),
@@ -306,10 +329,13 @@ class SyncManager(private val context: Context) {
         }
     }
 
+    /**
+     * Only selects stores that have been modified and require synchronization.
+     */
     private suspend fun mapLocalStoresToSync(): List<StoreLocationSync> {
-        // Ne prendre que les magasins qui ont besoin d'être synchronisés
+        // Only take stores that need to be synced
         val stores = storeLocationDao.getStoresToSync()
-        Log.d(TAG, "frontend: Stores à synchroniser: ${stores.size} - IDs: ${stores.map { it.id }}")
+
         return stores.map { store ->
             StoreLocationSync(
                 id = store.serverId,
@@ -327,17 +353,20 @@ class SyncManager(private val context: Context) {
         }
     }
 
-    // Fonctions de traitement des données reçues du serveur
-
+    /**
+     * Synchronizes shopping lists received from the server with the local database
+     * - If a list already exists locally (identified by syncId), it is updated.
+     * - If a list doesn't exist locally, it is created.
+     */
     private suspend fun processServerLists(lists: List<ShoppingListSync>) {
         for (listSync in lists) {
-            // Vérifier si la liste existe déjà localement par syncId
+            // Check if list already exists locally by syncId
             val existingList = listSync.syncId?.let { syncId: String ->
                 shoppingListDao.getListBySyncId(syncId)
             }
 
             if (existingList != null) {
-                // Mettre à jour la liste existante avec les données du serveur
+                // Update the existing list with the latest server data
                 shoppingListDao.update(
                     existingList.copy(
                         name = listSync.name,
@@ -347,7 +376,7 @@ class SyncManager(private val context: Context) {
                     )
                 )
             } else {
-                // Créer une nouvelle liste
+                // Insert a new shopping list into the local database
                 shoppingListDao.insert(
                     ShoppingList(
                         name = listSync.name,
@@ -361,16 +390,21 @@ class SyncManager(private val context: Context) {
         }
     }
 
+    /**
+     * Synchronizes shopping items received from the server with the local database.
+     * - If an item with the same syncId already exists locally, it is updated.
+     * - Otherwise, a new item is inserted into the corresponding shopping list.
+     * - If insertion fails, an existing item with a similar name is updated instead.
+     */
     private suspend fun processServerItems(items: List<ShoppingItemSync>) {
         for (itemSync in items) {
-            // Double check that this item doesn't already exist locally
+            // Check if the item already exists locally using syncId
             val existingItem = itemSync.syncId?.let { syncId ->
                 shoppingItemDao.getItemBySyncId(syncId)
             }
 
             if (existingItem != null) {
-                // Item already exists, update it instead of creating a new one
-                Log.d(TAG, "Item with syncId ${itemSync.syncId} already exists locally, updating")
+                // Update the existing item with the latest server data
                 shoppingItemDao.update(
                     existingItem.copy(
                         name = itemSync.name,
@@ -384,18 +418,17 @@ class SyncManager(private val context: Context) {
                     )
                 )
             } else {
-                // Find the corresponding local list
+                //Find the corresponding local shopping list for this item
                 val localList = if (itemSync.shoppingListId > 0) {
                     shoppingListDao.getListByServerId(itemSync.shoppingListId)
                 } else {
-                    // If no valid server ID, use the first list
+                    // If no valid server ID is provided, assign it to the first available list
                     shoppingListDao.getAllListsOnce().firstOrNull()
                 }
 
                 if (localList != null) {
                     try {
-                        // Create a new item
-                        Log.d(TAG, "Creating new item from server: ${itemSync.name} with syncId ${itemSync.syncId}")
+                        // Insert a new item into the database
                         shoppingItemDao.insert(
                             ShoppingItem(
                                 name = itemSync.name,
@@ -412,7 +445,8 @@ class SyncManager(private val context: Context) {
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Error inserting item ${itemSync.name} with syncId ${itemSync.syncId}", e)
-                        // If insertion fails, try to update any existing item with the same name
+
+                        // If insertion fails, find a similar item by name and update it instead
                         val similarItems = shoppingItemDao.getAllByShoppingListOnce(localList.id)
                             .filter { it.name.equals(itemSync.name, ignoreCase = true) }
 
@@ -438,19 +472,24 @@ class SyncManager(private val context: Context) {
         }
     }
 
+    /**
+     * Synchronizes store locations received from the server with the local database.
+     * - If a store already exists locally (determined by syncId, geofenceId, or location), it is updated.
+     * - Otherwise, a new store is inserted.
+     */
     private suspend fun processServerStores(stores: List<StoreLocationSync>) {
         for (storeSync in stores) {
-            // First check if the store already exists by syncId
+            // Check if the store already exists locally using syncId
             var existingStore = storeSync.syncId?.let { syncId ->
                 storeLocationDao.getStoreBySyncId(syncId)
             }
 
-            // If not found by syncId, try finding by geofenceId
+            // If not found, try matching by geofenceId
             if (existingStore == null && storeSync.geofenceId.isNotEmpty()) {
                 existingStore = storeLocationDao.getStoreByGeofenceId(storeSync.geofenceId)
             }
 
-            // If still not found, try finding by similar location (coordinates within a small range)
+            //  If still not found, check by location coordinates (small margin of error)
             if (existingStore == null) {
                 val allStores = storeLocationDao.getAllStoresOnce()
                 existingStore = allStores.find { store ->
@@ -468,9 +507,9 @@ class SyncManager(private val context: Context) {
                 }
             }
 
+            // If still not found,Update the existing store with the latest server data
+            // If the server geofenceId is empty, keep the local one
             if (existingStore != null) {
-                // Update the existing store with the server data
-                // and maintain the existing geofenceId if the server one is empty
                 val updatedStore = existingStore.copy(
                     name = storeSync.name,
                     address = storeSync.address,
@@ -483,11 +522,9 @@ class SyncManager(private val context: Context) {
                     syncStatus = SyncStatus.SYNCED
                 )
 
-                Log.d(TAG, "Updating existing store: ${existingStore.id} (${existingStore.name}) with sync data")
                 storeLocationDao.update(updatedStore)
             } else {
-                // Create a new store only if we're sure it doesn't exist
-                Log.d(TAG, "Creating new store from sync: ${storeSync.name}")
+                // Insert a new store into the database
                 storeLocationDao.insert(
                     StoreLocation(
                         name = storeSync.name,
@@ -505,14 +542,12 @@ class SyncManager(private val context: Context) {
         }
     }
 
-    // Marquer les éléments comme synchronisés
-
     private suspend fun markItemsAsSynced(syncIds: List<String>) {
         for (syncId in syncIds) {
             try {
                 shoppingItemDao.updateSyncStatus(syncId, SyncStatus.SYNCED)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la mise à jour du statut de synchronisation de l'article $syncId", e)
+                Log.e(TAG, "Error updating item sync status $syncId", e)
             }
         }
     }
@@ -522,7 +557,7 @@ class SyncManager(private val context: Context) {
             try {
                 shoppingListDao.updateSyncStatus(syncId, SyncStatus.SYNCED)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la mise à jour du statut de synchronisation de la liste $syncId", e)
+                Log.e(TAG, "Error updating list sync status $syncId", e)
             }
         }
     }
@@ -532,7 +567,7 @@ class SyncManager(private val context: Context) {
             try {
                 storeLocationDao.updateSyncStatus(syncId, SyncStatus.SYNCED)
             } catch (e: Exception) {
-                Log.e(TAG, "Erreur lors de la mise à jour du statut de synchronisation du magasin $syncId", e)
+                Log.e(TAG, "Error updating store sync status $syncId", e)
             }
         }
     }

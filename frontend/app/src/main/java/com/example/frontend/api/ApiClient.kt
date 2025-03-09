@@ -13,7 +13,6 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 object APIClient {
-    // Make BASE_URL and gson accessible
     const val BASE_URL = "http://10.0.2.2:8080/" // Replace URL
 
     // Keep track of initialization state
@@ -57,7 +56,7 @@ object APIClient {
             .build()
     }
 
-    // Retrofit instance
+    // Retrofit (type-safe REST client)
     private val retrofit by lazy {
         if (!isInitialized) {
             throw IllegalStateException("APIClient must be initialized first")
@@ -72,19 +71,16 @@ object APIClient {
 
     // API services
     val authService: AuthService by lazy { retrofit.create(AuthService::class.java) }
-    val shoppingListService: ShoppingListService by lazy { retrofit.create(ShoppingListService::class.java) }
-    val shoppingItemService: ShoppingItemService by lazy { retrofit.create(ShoppingItemService::class.java) }
-    val storeLocationService: StoreLocationService by lazy { retrofit.create(StoreLocationService::class.java) }
     val syncService: SyncService by lazy { retrofit.create(SyncService::class.java) }
 
-    // Serializer for converting LocalDateTime to JSON
+    // Convert LocalDateTime to JSON
     class LocalDateTimeSerializer : JsonSerializer<LocalDateTime> {
         override fun serialize(src: LocalDateTime?, typeOfSrc: Type?, context: JsonSerializationContext?): JsonElement {
             return JsonPrimitive(DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(src))
         }
     }
 
-    // Deserializer for converting JSON to LocalDateTime
+    // Convert JSON to LocalDateTime
     class LocalDateTimeDeserializer : JsonDeserializer<LocalDateTime> {
         override fun deserialize(json: JsonElement?, typeOfT: Type?, context: JsonDeserializationContext?): LocalDateTime {
             return LocalDateTime.parse(json?.asString, DateTimeFormatter.ISO_LOCAL_DATE_TIME)

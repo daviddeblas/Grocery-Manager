@@ -155,6 +155,9 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Initializes the activity, sets up UI components, and requests necessary permissions.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_shopping_lists)
@@ -171,28 +174,31 @@ class ShoppingListActivity : AppCompatActivity() {
 
         setupToolbar()
 
-        // RecyclerView = allows to display a list of items (list of shopping lists).
+        // RecyclerView allows to display a list of items (list of shopping lists)
         setupRecyclerView()
 
-        // The plus button to add a new item.
+        // The plus button to add a new item
         setupFab()
 
-        // The store button to add a new store.
+        // The store button to add a new store
         setupFabManageStores()
         setupStoresRecyclerView()
 
         // Observe the shopping lists
         viewModel.allLists.observe(this) { lists ->
-            // Update the adapter's list when data changes.
+            // Update the adapter's list when data changes
             shoppingListAdapter.submitList(lists)
         }
 
-        // Configuring swipe to refresh
+        // Configure swipe to refresh
         setupSwipeRefresh()
 
         observeSyncState()
     }
 
+    /**
+     * Requests all required permissions in a chained sequence.
+     */
     private fun requestAllPermissionsChained() {
         requestNotifPermission {
             requestFineLocation {
@@ -201,7 +207,9 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
-
+    /**
+     * Requests notification permission on Android 13+ or calls completion handler on older versions.
+     */
     private fun requestNotifPermission(onComplete: () -> Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val notifGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -220,6 +228,11 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Requests fine location permission.
+     *
+     * @param onComplete Function to call after permission is handled
+     */
     private fun requestFineLocation(onComplete: () -> Unit) {
         val fineGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         if (!fineGranted) {
@@ -233,6 +246,9 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Requests background location permission on Android 10+
+     */
     private fun requestBackgroundLocation() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         val bgGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -246,7 +262,7 @@ class ShoppingListActivity : AppCompatActivity() {
     }
 
     /**
-     * Once a permission is responded to, we continue the chain if needed.
+     * Handles permission request results and continues permission chain if needed.
      */
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -279,10 +295,6 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
-    // ------------------------------------------------------
-    // UI for shopping lists
-    // ------------------------------------------------------
-
     private fun setupToolbar() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbarList)
         setSupportActionBar(toolbar)
@@ -295,11 +307,17 @@ class ShoppingListActivity : AppCompatActivity() {
         recyclerView.adapter = shoppingListAdapter
     }
 
+    /**
+     * Sets up the FAB to add a new shopping list.
+     */
     private fun setupFab() {
         val fabAddList = findViewById<FloatingActionButton>(R.id.fabAddList)
         fabAddList.setOnClickListener { showAddListDialog() }
     }
 
+    /**
+     * Shows a dialog to add a new shopping list.
+     */
     private fun showAddListDialog() {
         val input = EditText(this)
 
@@ -326,45 +344,51 @@ class ShoppingListActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * Shows a confirmation dialog for deleting a shopping list.
+     *
+     * @param list The shopping list to delete
+     */
     private fun confirmAndDeleteList(list: ShoppingList) {
         val currentLists = viewModel.allLists.value ?: emptyList()
 
         if (currentLists.size <= 1) {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.cannot_delete_list)
-                    .setMessage(getString(R.string.must_keep_one_list))
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show()
-            } else {
-                MaterialAlertDialogBuilder(this)
-                    .setTitle(R.string.delete_list)
-                    .setMessage(getString(R.string.delete_list_confirm_message, list.name))
-                    .setPositiveButton(R.string.delete_confirm) { _, _ ->
-                        val finalCount = viewModel.allLists.value?.size ?: 0
-                        if (finalCount > 1) {
-                            viewModel.deleteList(list)
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.cannot_delete_list)
+                .setMessage(getString(R.string.must_keep_one_list))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        } else {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.delete_list)
+                .setMessage(getString(R.string.delete_list_confirm_message, list.name))
+                .setPositiveButton(R.string.delete_confirm) { _, _ ->
+                    val finalCount = viewModel.allLists.value?.size ?: 0
+                    if (finalCount > 1) {
+                        viewModel.deleteList(list)
 
-                            // Trigger immediate sync after deletion
-                            SyncScheduler.requestImmediateSync(this)
-                        } else {
-                            Toast.makeText(this, R.string.last_list_error, Toast.LENGTH_SHORT).show()
-                        }
+                        // Trigger immediate sync after deletion
+                        SyncScheduler.requestImmediateSync(this)
+                    } else {
+                        Toast.makeText(this, R.string.last_list_error, Toast.LENGTH_SHORT).show()
                     }
-                    .setNegativeButton(R.string.msg_cancel, null)
-                    .show()
-            }
-
+                }
+                .setNegativeButton(R.string.msg_cancel, null)
+                .show()
+        }
     }
 
-    // ------------------------------------------------------
-    // UI for store locations + geofences
-    // ------------------------------------------------------
-
+    /**
+     * Sets up the FAB to add a new store location.
+     */
     private fun setupFabManageStores() {
         val fabManageStores = findViewById<FloatingActionButton>(R.id.fabManageStores)
         fabManageStores.setOnClickListener { launchPlaceAutocomplete() }
     }
 
+    /**
+     * Launches the Google Places Autocomplete activity to select a store location.
+     */
     private fun launchPlaceAutocomplete() {
         val fields = listOf(
             Place.Field.ID,
@@ -377,6 +401,9 @@ class ShoppingListActivity : AppCompatActivity() {
         autocompleteLauncher.launch(intent)
     }
 
+    /**
+     * Sets up the RecyclerView for store locations.
+     */
     private fun setupStoresRecyclerView() {
         val tvStoresTitle = findViewById<TextView>(R.id.tvStoresTitle)
         val recyclerViewStores = findViewById<RecyclerView>(R.id.recyclerViewStores)
@@ -392,35 +419,41 @@ class ShoppingListActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Sets up the swipe-to-refresh functionality.
+     */
     private fun setupSwipeRefresh() {
         val swipeRefreshLayout = findViewById<androidx.swiperefreshlayout.widget.SwipeRefreshLayout>(R.id.swipeRefreshLayout)
 
-        // Définir les couleurs du spinner de chargement
+        // Define the loading spinner colors
         swipeRefreshLayout.setColorSchemeResources(
             R.color.purple_500,
             R.color.teal_200,
             R.color.purple_700
         )
 
-        // Configurer le listener de rafraîchissement
+        // Configure the refresh listener
         swipeRefreshLayout.setOnRefreshListener {
             lifecycleScope.launch {
                 try {
-                    // Demander une synchronisation immédiate
+                    // Request immediate synchronization
                     SyncScheduler.requestImmediateSync(this@ShoppingListActivity)
 
-                    // Attendre un moment pour donner l'impression que quelque chose se passe
+                    // Wait a moment to give the impression that something is happening
                     delay(1000)
                 } finally {
-                    // Toujours masquer l'indicateur de rafraîchissement
+                    // Always hide the refresh indicator
                     swipeRefreshLayout.isRefreshing = false
                 }
             }
         }
     }
 
+    /**
+     * Observes synchronization state and shows appropriate messages.
+     */
     private fun observeSyncState() {
-        // Afficher un toast ou une notification quand la synchronisation est terminée
+        // Display a toast or notification when synchronization is complete
         WorkManager.getInstance(this).getWorkInfosForUniqueWorkLiveData(SyncScheduler.SYNC_WORK_NAME)
             .observe(this) { workInfos ->
                 workInfos?.firstOrNull()?.let { workInfo ->
@@ -432,7 +465,7 @@ class ShoppingListActivity : AppCompatActivity() {
                             Toast.makeText(this, R.string.sync_failed, Toast.LENGTH_SHORT).show()
                         }
                         else -> {
-                            // Ignorer les autres états
+                            // Ignore other states
                         }
                     }
                 }

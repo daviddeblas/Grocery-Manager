@@ -1,7 +1,6 @@
 package com.example.frontend.ui.activities
 
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -12,34 +11,37 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.frontend.R
-import com.example.frontend.api.APIClient
-import com.example.frontend.api.model.LoginRequest
-import com.example.frontend.api.model.SignupRequest
 import com.example.frontend.data.model.ShoppingItem
 import com.example.frontend.data.model.SortMode
 import com.example.frontend.services.SyncScheduler
 import com.example.frontend.ui.adapters.ManualShoppingAdapter
 import com.example.frontend.utils.DragSwipeCallback
 import com.example.frontend.utils.KeyboardUtils
-import com.example.frontend.utils.SessionManager
 import com.example.frontend.utils.UnitHelper
 import com.example.frontend.viewmodel.ShoppingViewModel
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
+/**
+ * This class displays and manages shopping list items.
+ *
+ * This activity allows users to:
+ * - View, add, edit, and delete shopping items
+ * - Check/uncheck items as purchased
+ * - Sort items by different criteria
+ * - Search for specific items
+ * - Reorder items via drag and drop when in custom sort mode
+ */
 class MainActivity : AppCompatActivity() {
 
     // ViewModel and UI components
@@ -54,17 +56,15 @@ class MainActivity : AppCompatActivity() {
     private var originalList: List<ShoppingItem> = emptyList()
     private var searchQuery: String = ""
 
+    /**
+     * Initializes the activity, setting up UI components and observers.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Set up the title and ensure the toolbar is below the status bar !
+        // Set up the title and ensure the toolbar is below the status bar
         setupToolbar()
-
-        // Ajoutez un bouton pour tester l'authentification (optionnel)
-        findViewById<Button>(R.id.btnTestAuth)?.setOnClickListener {
-            testAuthentication()
-        }
 
         // It allows to keep the data if the activity is destroyed or recreated
         viewModel = ViewModelProvider(this)[ShoppingViewModel::class.java]
@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         // Get the list ID from the Intent extras, or create a default list if none is provided
         initializeListId()
 
-        // RecyclerView = allows to display a list of items
+        // RecyclerView allows to display a list of items
         setupRecyclerView()
 
         // Setup buttons for checking/unchecking all items
@@ -85,70 +85,17 @@ class MainActivity : AppCompatActivity() {
         setupKeyboardBehavior()
     }
 
-    private fun testAuthentication() {
-        lifecycleScope.launch {
-            try {
-                // Afficher un message de test
-                Toast.makeText(this@MainActivity, "Test d'authentification...", Toast.LENGTH_SHORT).show()
-
-                // 1. Tester l'inscription
-                val signupResponse = try {
-                    APIClient.authService.register(SignupRequest("testuser", "test@example.com", "password123"))
-                } catch (e: Exception) {
-                    Log.e("AUTH_TEST", "Erreur d'inscription: ${e.message}")
-                    Toast.makeText(this@MainActivity, "Erreur d'inscription: ${e.message}", Toast.LENGTH_LONG).show()
-                    return@launch
-                }
-
-                Log.d("AUTH_TEST", "Réponse d'inscription: ${signupResponse.isSuccessful}")
-
-                // 2. Tester la connexion
-                val loginResponse = try {
-                    APIClient.authService.login(LoginRequest("testuser", "password123"))
-                } catch (e: Exception) {
-                    Log.e("AUTH_TEST", "Erreur de connexion: ${e.message}")
-                    Toast.makeText(this@MainActivity, "Erreur de connexion: ${e.message}", Toast.LENGTH_LONG).show()
-                    return@launch
-                }
-
-                if (loginResponse.isSuccessful) {
-                    val jwtResponse = loginResponse.body()
-                    Log.d("AUTH_TEST", "Token: ${jwtResponse?.token?.take(20)}...")
-
-                    // Sauvegarder les tokens
-                    SessionManager.saveTokens(jwtResponse?.token ?: "", jwtResponse?.refreshToken ?: "")
-
-                    // 3. Tester un appel protégé
-                    try {
-                        val listsResponse = APIClient.shoppingListService.getAllLists()
-                        Log.d("AUTH_TEST", "Listes récupérées: ${listsResponse.isSuccessful}")
-                        Toast.makeText(this@MainActivity,
-                            "Test réussi! Listes: ${listsResponse.body()?.size ?: 0}",
-                            Toast.LENGTH_LONG).show()
-                    } catch (e: Exception) {
-                        Log.e("AUTH_TEST", "Erreur d'accès aux listes: ${e.message}")
-                        Toast.makeText(this@MainActivity,
-                            "Erreur d'accès aux listes: ${e.message}",
-                            Toast.LENGTH_LONG).show()
-                    }
-                } else {
-                    Log.e("AUTH_TEST", "Échec de connexion: ${loginResponse.code()}")
-                    Toast.makeText(this@MainActivity,
-                        "Échec de connexion: ${loginResponse.code()}",
-                        Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                Log.e("AUTH_TEST", "Erreur globale: ${e.message}")
-                Toast.makeText(this@MainActivity, "Erreur globale: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
+    /**
+     * Sets up keyboard handling for better UX with input fields.
+     */
     private fun setupKeyboardBehavior() {
         keyboardUtils = KeyboardUtils(this, recyclerView)
         keyboardUtils.setup()
     }
 
+    /**
+     * Cleans up resources when the activity is destroyed.
+     */
     override fun onDestroy() {
         super.onDestroy()
         if (::keyboardUtils.isInitialized) {
@@ -156,9 +103,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     /**
-     * Hide the keyboard when clicked outside of an EditText element.
+     * Hides the keyboard when clicked outside of an EditText element.
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (ev.action == MotionEvent.ACTION_DOWN) {
@@ -176,14 +122,18 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    /** Configures the Toolbar as the ActionBar and applies window insets only to it */
+    /**
+     * Configures the Toolbar as the ActionBar and applies window insets only to it.
+     */
     private fun setupToolbar() {
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.title = getString(R.string.app_name)
     }
 
-    /** Initializes the current list ID or a default if none is provided */
+    /**
+     * Initializes the current list ID or a default if none is provided.
+     */
     private fun initializeListId() {
         // intent = the data sent to the activity when it starts
         val listId = intent.getIntExtra("LIST_ID", -1)
@@ -196,7 +146,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Sets up the RecyclerView with a LinearLayoutManager and the ManualShoppingAdapter */
+    /**
+     * Sets up the RecyclerView with a LinearLayoutManager and the ManualShoppingAdapter.
+     */
     private fun setupRecyclerView() {
         textViewEmpty = findViewById(R.id.textViewEmpty)
         recyclerView = findViewById(R.id.recyclerView)
@@ -208,17 +160,17 @@ class MainActivity : AppCompatActivity() {
             onItemClick = { item -> showEditDialog(item) },
             onCheckChange = { item, isChecked ->
                 viewModel.updateItem(item.copy(isChecked = isChecked))
-                // Déclencher la synchronisation après une mise à jour
+                // Trigger synchronization after an update
                 SyncScheduler.requestImmediateSync(this)
             },
             onQuantityChanged = { item, newQty ->
                 viewModel.updateItem(item.copy(quantity = newQty))
-                // Déclencher la synchronisation après une mise à jour
+                // Trigger synchronization after an update
                 SyncScheduler.requestImmediateSync(this)
             },
             onNameChanged = { item, newName ->
                 viewModel.updateItem(item.copy(name = newName))
-                // Déclencher la synchronisation après une mise à jour
+                // Trigger synchronization after an update
                 SyncScheduler.requestImmediateSync(this)
             },
             onUnitTypeChanged = { item, newUnitType ->
@@ -231,19 +183,22 @@ class MainActivity : AppCompatActivity() {
                     item.quantity
                 }
                 viewModel.updateItem(item.copy(unitType = newUnitType, quantity = newQty))
-                // Déclencher la synchronisation après une mise à jour
+                // Trigger synchronization after an update
                 SyncScheduler.requestImmediateSync(this)
             },
             onAddNewItem = { name ->
                 val defaultUnit = unitHelper.getLocalizedUnitName(UnitHelper.UNIT_TYPE_UNIT)
                 viewModel.addItem(name, 1.0, defaultUnit)
-                // Déclencher la synchronisation après l'ajout
+                // Trigger synchronization after adding
                 SyncScheduler.requestImmediateSync(this)
             }
         )
         recyclerView.adapter = manualAdapter
     }
 
+    /**
+     * Sets up the check/uncheck all items button.
+     */
     private fun setupCheckAllButtons() {
         val btnCheckAll = findViewById<Button>(R.id.btnCheckAll)
 
@@ -273,7 +228,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Observes the LiveData from the ViewModel and updates the UI accordingly */
+    /**
+     * Observes the LiveData from the ViewModel and updates the UI accordingly.
+     */
     private fun setupObservers() {
         // Observe the list of shopping items
         viewModel.allItems.observe(this) { items ->
@@ -293,14 +250,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Filters the provided list of items based on the search query (case-insensitive) */
+    /**
+     * Filters the provided list of items based on the search query (case-insensitive).
+     *
+     * @param items The list of items to filter
+     * @param query The search query to filter by
+     * @return Filtered list of items that match the query
+     */
     private fun filterList(items: List<ShoppingItem>, query: String): List<ShoppingItem> {
         if (query.isBlank()) return items
         val lower = query.lowercase()
         return items.filter { it.name.lowercase().contains(lower) }
     }
 
-    /** Attaches drag & drop and swipe-to-delete functionality to the RecyclerView */
+    /**
+     * Attaches drag & drop and swipe-to-delete functionality to the RecyclerView.
+     */
     private fun attachDragSwipe() {
         val callback = DragSwipeCallback(
             adapter = manualAdapter,
@@ -309,11 +274,11 @@ class MainActivity : AppCompatActivity() {
                 Snackbar.make(recyclerView, getString(R.string.deleted_item, removedItem.name), Snackbar.LENGTH_LONG)
                     .setAction(R.string.undo) {
                         viewModel.addItem(removedItem.name, removedItem.quantity, removedItem.unitType)
-                        // Sync après le rétablissement
+                        // Sync after restoration
                         SyncScheduler.requestImmediateSync(this)
                     }
                     .show()
-                // Sync après la suppression
+                // Sync after deletion
                 SyncScheduler.requestImmediateSync(this)
             },
             onReorderDone = {
@@ -321,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                 for ((index, item) in manualAdapter.items.withIndex()) {
                     viewModel.updateItem(item.copy(sortIndex = index))
                 }
-                // Sync après réorganisation
+                // Sync after reordering
                 SyncScheduler.requestImmediateSync(this)
             }
         )
@@ -329,7 +294,9 @@ class MainActivity : AppCompatActivity() {
         itemTouchHelper?.attachToRecyclerView(recyclerView)
     }
 
-    /** Inflates the menu and sets up the SearchView listener */
+    /**
+     * Inflates the menu and sets up the SearchView listener.
+     */
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         val searchItem = menu?.findItem(R.id.action_search)
@@ -347,7 +314,9 @@ class MainActivity : AppCompatActivity() {
         return super.onCreateOptionsMenu(menu)
     }
 
-    /** Handles sort options selected from the menu */
+    /**
+     * Handles sort options selected from the menu.
+     */
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_sort_manual -> {
@@ -366,7 +335,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Opens a dialog for adding a new shopping item */
+    /**
+     * Opens a dialog for editing an existing shopping item.
+     */
     private fun showEditDialog(item: ShoppingItem) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_item, null)
         val etName = dialogView.findViewById<TextInputEditText>(R.id.etItemName)

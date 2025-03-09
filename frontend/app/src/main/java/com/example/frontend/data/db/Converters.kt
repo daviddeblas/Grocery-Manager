@@ -5,6 +5,9 @@ import com.example.frontend.data.model.SyncStatus
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+/**
+ * Convert complex data types to Room (because Room only supports primitive data types)
+ */
 class Converters {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 

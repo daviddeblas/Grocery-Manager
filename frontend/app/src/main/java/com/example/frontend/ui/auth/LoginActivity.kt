@@ -14,6 +14,9 @@ import com.example.frontend.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
 import com.example.frontend.services.SyncScheduler
 
+/**
+ * LoginActivity allows users to log in to the app.
+ */
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
@@ -85,7 +88,7 @@ class LoginActivity : AppCompatActivity() {
                     onSuccess = {
                         Toast.makeText(this@LoginActivity, R.string.login_success, Toast.LENGTH_SHORT).show()
 
-                        // Déclencher une synchronisation immédiate après la connexion
+                        // Trigger synchronization after login
                         SyncScheduler.requestImmediateSync(this@LoginActivity)
 
                         navigateToMain()

@@ -7,9 +7,17 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import java.time.LocalDateTime
 
+/**
+ * Handles user session management, including securely storing and retrieving authentication tokens,
+ * user details, and synchronization timestamps using `EncryptedSharedPreferences`.
+ */
 object SessionManager {
     private const val TAG = "SessionManager"
+
+    /** Preferences file name for storing session data */
     private const val PREF_NAME = "grocery_manager_prefs"
+
+    /** Keys for storing session-related information */
     private const val KEY_TOKEN = "jwt_token"
     private const val KEY_REFRESH_TOKEN = "refresh_token"
     private const val KEY_USER_ID = "user_id"
@@ -17,7 +25,10 @@ object SessionManager {
     private const val KEY_EMAIL = "email"
     private const val KEY_LAST_SYNC = "last_sync"
 
+    /** SharedPreferences instance (encrypted) */
     private lateinit var sharedPreferences: SharedPreferences
+
+    /** Flag to check if the SessionManager has been initialized */
     private var initialized = false
 
     /**
@@ -61,14 +72,14 @@ object SessionManager {
         }
     }
 
-    // Make sure sharedPreferences is initialized before using it
+    /** Ensures that the SessionManager has been initialized before accessing data. */
     private fun ensureInitialized() {
         if (!initialized || !::sharedPreferences.isInitialized) {
             throw IllegalStateException("SessionManager not initialized! Call init() first.")
         }
     }
 
-    // Access token (existing)
+    // Access token (Retrieves the stored JWT access token)
     var token: String?
         get() {
             ensureInitialized()
@@ -82,11 +93,11 @@ object SessionManager {
                 } else {
                     remove(KEY_TOKEN)
                 }
-                commit() // Use commit instead of apply for immediate write
+                commit() // Immediate write
             }
         }
 
-    // Refresh token (new)
+    // Refresh token (Retrieves the stored refresh token)
     var refreshToken: String?
         get() {
             ensureInitialized()
@@ -100,11 +111,11 @@ object SessionManager {
                 } else {
                     remove(KEY_REFRESH_TOKEN)
                 }
-                commit() // Use commit instead of apply for immediate write
+                commit() // Immediate write
             }
         }
 
-    // Store both tokens at once (convenient helper)
+    // Saves both the access token and refresh token
     fun saveTokens(accessToken: String, refreshToken: String) {
         ensureInitialized()
         with(sharedPreferences.edit()) {
@@ -115,7 +126,7 @@ object SessionManager {
         Log.d(TAG, "Tokens saved successfully")
     }
 
-    // User ID
+    // User ID (retrieved from session storage)
     var userId: Long
         get() {
             ensureInitialized()
@@ -126,7 +137,7 @@ object SessionManager {
             sharedPreferences.edit().putLong(KEY_USER_ID, value).commit()
         }
 
-    // Username
+    // Username (stored securely in session).
     var username: String?
         get() {
             ensureInitialized()
@@ -144,7 +155,7 @@ object SessionManager {
             }
         }
 
-    // Email
+    // User Email (stored securely in session)
     var email: String?
         get() {
             ensureInitialized()
@@ -162,7 +173,7 @@ object SessionManager {
             }
         }
 
-    // Last sync timestamp
+    // Last Synchronization Timestamp (used for sync operations)
     var lastSync: LocalDateTime?
         get() {
             ensureInitialized()
@@ -182,8 +193,8 @@ object SessionManager {
         }
 
     /**
-     * Check if user is logged in with both tokens
-     * For complete security, we verify both access and refresh tokens exist
+     * Checks if the user is logged in
+     * Requires both an access token and a refresh token
      */
     fun isLoggedIn(): Boolean {
         if (!initialized || !::sharedPreferences.isInitialized) {
@@ -211,7 +222,6 @@ object SessionManager {
             remove(KEY_USER_ID)
             remove(KEY_USERNAME)
             remove(KEY_EMAIL)
-            // Optionally preserve lastSync if needed for offline data handling
             commit()
         }
         Log.d(TAG, "User logged out, all session data cleared")

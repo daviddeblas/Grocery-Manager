@@ -22,10 +22,9 @@ class StoreLocationRepository(context: Context) {
 
     suspend fun deleteStore(store: StoreLocation) {
         withContext(Dispatchers.IO) {
-            // Supprimer le magasin
             storeDao.delete(store)
 
-            // Si le magasin a un syncId, enregistrer la suppression pour la synchronisation
+            // If the store has a syncId, record the deletion for sync
             if (store.syncId != null) {
                 val deletedItem = DeletedItem(
                     originalId = store.id,

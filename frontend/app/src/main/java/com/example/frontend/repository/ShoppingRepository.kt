@@ -1,7 +1,6 @@
 package com.example.frontend.repository
 
 import android.content.Context
-import android.util.Log
 import androidx.lifecycle.LiveData
 import com.example.frontend.data.db.AppDatabase
 import com.example.frontend.data.model.ShoppingItem
@@ -58,7 +57,6 @@ class ShoppingRepository(context: Context) {
 
     suspend fun deleteLocalItem(item: ShoppingItem) {
         withContext(Dispatchers.IO) {
-            // Delete the item
             itemDao.delete(item)
 
             // Register the item as deleted
@@ -69,7 +67,6 @@ class ShoppingRepository(context: Context) {
                     entityType = "SHOPPING_ITEM"
                 )
                 deletedItemDao.insert(deletedItem)
-                Log.d("ShoppingRepo", "frontend: Item supprimé enregistré pour sync: ID=${item.id}, syncID=${item.syncId}")
             }
         }
     }
@@ -106,27 +103,11 @@ class ShoppingRepository(context: Context) {
         }
     }
 
-    suspend fun updateList(list: ShoppingList) {
-        withContext(Dispatchers.IO) {
-            val syncStatus = if (list.syncStatus == SyncStatus.SYNCED)
-                SyncStatus.MODIFIED_LOCALLY
-            else
-                list.syncStatus
-
-            val updatedList = list.copy(
-                syncStatus = syncStatus,
-                updatedAt = LocalDateTime.now()
-            )
-            listDao.update(updatedList)
-        }
-    }
-
     suspend fun deleteList(list: ShoppingList) {
         withContext(Dispatchers.IO) {
-            // Obtenir tous les items de la liste avant de les supprimer
             val items = itemDao.getAllByShoppingListOnce(list.id)
 
-            // Enregistrer les items supprimés avec syncId
+            // Save deleted items with syncId
             for (item in items) {
                 if (item.syncId != null) {
                     val deletedItem = DeletedItem(
@@ -138,13 +119,10 @@ class ShoppingRepository(context: Context) {
                 }
             }
 
-            // Supprimer les items
             itemDao.deleteAllFromList(list.id)
-
-            // Supprimer la liste
             listDao.delete(list)
 
-            // Enregistrer la suppression de la liste
+            // Save list deletion
             if (list.syncId != null) {
                 val deletedItem = DeletedItem(
                     originalId = list.id,

@@ -14,6 +14,9 @@ import com.example.frontend.viewmodel.AuthViewModel
 import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 
+/**
+ * SignupActivity allows users to create a new account.
+ */
 class SignupActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySignupBinding

@@ -14,9 +14,6 @@ class GroceryManagerApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize components in the correct order
-        Log.d(TAG, "Initializing application components...")
-
         // First initialize session manager
         try {
             SessionManager.init(this)
@@ -39,7 +36,7 @@ class GroceryManagerApplication : Application() {
                 Log.d(TAG, "User is logged in, scheduling sync work")
                 SyncScheduler.scheduleSyncWork(this)
 
-                // Ajouter cette ligne pour déclencher une synchronisation immédiate au démarrage
+                // Schedule a synchronization
                 SyncScheduler.requestImmediateSync(this)
             } else {
                 Log.d(TAG, "User is not logged in, skipping sync scheduling")

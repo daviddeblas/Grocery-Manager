@@ -13,10 +13,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 
+/**
+ * This ViewModel handles authentication-related operations, including:
+ * - Login & Signup with API calls.
+ * - Managing JWT tokens (access & refresh tokens).
+ * - Refreshing authentication tokens to maintain session validity.
+ */
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val authService = APIClient.authService
 
+    /**
+     * Performs user login using username and password.
+     *
+     * - Sends a POST request to the authentication API.
+     *
+     * - If successful:
+     *   - Stores tokens securely using SessionManager.
+     *   - Saves user details (ID, username, email).
+     * - If unsuccessful:
+     *   - Returns a failure result with the HTTP response code.
+     */
     suspend fun login(username: String, password: String): Result<JwtResponse> {
         return withContext(Dispatchers.IO) {
             try {
@@ -42,12 +59,18 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Registers a new user.
+     */
     suspend fun signup(signupRequest: SignupRequest): Response<MessageResponse> {
         return withContext(Dispatchers.IO) {
             authService.register(signupRequest)
         }
     }
 
+    /**
+     * **Refreshes the authentication token.**
+     */
     suspend fun refreshToken(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             try {

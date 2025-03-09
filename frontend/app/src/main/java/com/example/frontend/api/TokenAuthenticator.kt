@@ -8,10 +8,9 @@ import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
-import java.io.IOException
 
 /**
- * TokenAuthenticator handles 401 Unauthorized responses by attempting to refresh the access token.
+ * The class handles 401 Unauthorized responses by attempting to refresh the access token.
  * If the refresh is successful, it updates the tokens and retries the original request.
  */
 class TokenAuthenticator(private val context: Context) : Authenticator {
@@ -65,7 +64,7 @@ class TokenAuthenticator(private val context: Context) : Authenticator {
         }
     }
 
-    // Helper to create a temporary Retrofit instance without authentication
+    // Create a temporary Retrofit instance without authentication
     private fun createTemporaryRetrofit(): retrofit2.Retrofit {
         val loggingInterceptor = okhttp3.logging.HttpLoggingInterceptor().apply {
             level = okhttp3.logging.HttpLoggingInterceptor.Level.BODY
