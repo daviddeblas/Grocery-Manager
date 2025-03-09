@@ -14,6 +14,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+
+/**
+ * This class adapts the User entity to the `UserDetails` interface used by Spring Security.
+ * - Stores user credentials and roles.
+ * - Used for authentication and authorization.
+ * - Implements security methods.
+ */
 @AllArgsConstructor
 public class UserDetailsImpl implements UserDetails {
     @Serial

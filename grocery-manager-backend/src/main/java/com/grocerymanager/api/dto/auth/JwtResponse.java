@@ -13,13 +13,6 @@ public class JwtResponse {
     private String username;
     private String email;
 
-    public JwtResponse(String token, Long id, String username, String email) {
-        this.token = token;
-        this.id = id;
-        this.username = username;
-        this.email = email;
-    }
-
     public JwtResponse(String token, String refreshToken, Long id, String username, String email) {
         this.token = token;
         this.refreshToken = refreshToken;

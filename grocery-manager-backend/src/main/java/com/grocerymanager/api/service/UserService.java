@@ -20,13 +20,13 @@ public class UserService {
     private PasswordEncoder passwordEncoder;
 
     @Transactional
-    public User createUser(SignupRequest signupRequest) {
+    public void createUser(SignupRequest signupRequest) {
         User user = new User();
         user.setUsername(signupRequest.getUsername());
         user.setEmail(signupRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
 
-        return userRepository.save(user);
+        userRepository.save(user);
     }
 
     public boolean existsByUsername(String username) {

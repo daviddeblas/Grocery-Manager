@@ -15,6 +15,14 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Handles operations related to shopping items:
+ * - Fetching all items in a shopping list (`/list/{listId}`)
+ * - Fetching a specific item (`/{id}`)
+ * - Creating a new item (`POST /`)
+ * - Updating an item (`PUT /{id}`)
+ * - Deleting an item (`DELETE /{id}`)
+ */
 // For each request, the client sends a OPTIONS request to the server to check if the server allows the request.
 // So by setting the maxAge to 3600 seconds, the client will only send the OPTIONS request once every hour.
 // This is to allow the client to cache the response from the server.

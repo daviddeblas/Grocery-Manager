@@ -17,7 +17,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import com.grocerymanager.api.repository.RefreshTokenRepository;
 
-
+/**
+ * This controller handles authentication-related requests:
+ * - **User login (`/signin`)**
+ * - **User registration (`/signup`)**
+ * - **Token refresh (`/refreshtoken`)**
+ * - **User logout (`/signout`)**
+ *
+ * It provides secure authentication using JWT and refresh tokens.
+ */
 // For each request, the client sends a OPTIONS request to the server to check if the server allows the request.
 // So by setting the maxAge to 3600 seconds, the client will only send the OPTIONS request once every hour.
 // This is to allow the client to cache the response from the server.
@@ -76,9 +84,15 @@ public class AuthController {
 
         userService.createUser(signUpRequest);
 
-        return ResponseEntity.ok(new MessageResponse("Utilisateur enregistré avec succès!"));
+        return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 
+    /**
+     * Handles refresh token request
+     * - Verifies if the refresh token exists in the database.
+     * - Generates a new JWT access token if valid.
+     * - If the token is expired or invalid, throws a `TokenRefreshException`..
+     */
     @PostMapping("/refreshtoken")
     public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
         String requestRefreshToken = request.getRefreshToken();

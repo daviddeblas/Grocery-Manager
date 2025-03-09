@@ -34,15 +34,13 @@ public class RefreshTokenService {
         if (existingToken.isPresent()) {
             // Update existing token with new expiry and token value
             refreshToken = existingToken.get();
-            refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
-            refreshToken.setToken(UUID.randomUUID().toString());
         } else {
             // Create new token if one doesn't exist
             refreshToken = new RefreshToken();
             refreshToken.setUser(userRepository.findById(userId).get());
-            refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
-            refreshToken.setToken(UUID.randomUUID().toString());
         }
+        refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
+        refreshToken.setToken(UUID.randomUUID().toString());
 
         // Save the token (both for new and updated tokens)
         refreshToken = refreshTokenRepository.save(refreshToken);
