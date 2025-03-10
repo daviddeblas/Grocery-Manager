@@ -225,6 +225,12 @@ class MainActivity : AppCompatActivity() {
 
             // Manually refresh the adapter after update
             manualAdapter.setData(originalList)
+
+            // Trigger synchronization after updating all items
+            SyncScheduler.requestImmediateSync(this)
+
+            // Update the text of the "Check All" button
+            updateCheckAllButtonText()
         }
     }
 
@@ -238,6 +244,9 @@ class MainActivity : AppCompatActivity() {
             val filtered = filterList(originalList, searchQuery)
             manualAdapter.setData(filtered)
             textViewEmpty.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
+
+            // Update the text of the "Check All" button
+            updateCheckAllButtonText()
         }
 
         // Observe the sort mode to manage drag & drop
@@ -392,5 +401,26 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+    }
+
+    /**
+     * Updates the text of the "Check All" button based on the current state of the list.
+     */
+    private fun updateCheckAllButtonText() {
+        val btnCheckAll = findViewById<Button>(R.id.btnCheckAll)
+
+        if (originalList.isEmpty()) {
+            btnCheckAll.setText(R.string.check_all)
+            return
+        }
+
+        val allChecked = originalList.all { it.isChecked }
+        val anyUnchecked = originalList.any { !it.isChecked }
+
+        if (allChecked) {
+            btnCheckAll.setText(R.string.uncheck_all)
+        } else if (anyUnchecked) {
+            btnCheckAll.setText(R.string.check_all)
+        }
     }
 }
