@@ -34,7 +34,7 @@
             android:textColor="?android:attr/textColorSecondary"
             android:textSize="16sp"
             android:minLines="1"
-            android:maxLines="2"
+            android:maxLines="6"
             android:inputType="textMultiLine"
             android:imeOptions="actionDone"
             android:hint="@string/article_hint"/>
