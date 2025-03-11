@@ -13,6 +13,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * Handles data synchronization between the client and the server.
+ * - Receives a SyncRequest containing updated data from the client.
+ * - Processes the synchronization using SyncService.
+ * - Returns a SyncResponse with updated server data.
+ * - Ensures authentication before allowing synchronization.
+ */
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/sync")

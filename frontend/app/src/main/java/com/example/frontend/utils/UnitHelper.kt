@@ -22,7 +22,7 @@ class UnitHelper(private val context: Context) {
             unitString.equals("kg", ignoreCase = true) -> UNIT_TYPE_KG
             unitString.equals("L", ignoreCase = true) ||
                     unitString.equals("l", ignoreCase = true) -> UNIT_TYPE_LITER
-            else -> UNIT_TYPE_UNIT // Par défaut
+            else -> UNIT_TYPE_UNIT // By default
         }
     }
 

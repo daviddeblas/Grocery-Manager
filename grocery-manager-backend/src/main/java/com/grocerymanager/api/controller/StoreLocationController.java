@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Handles CRUD operations for store locations.
+ * - Allows users to retrieve, create, update, and delete stores.
+ * - Supports finding nearby stores based on geographic coordinates.
+ */
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/stores")
@@ -49,6 +54,11 @@ public class StoreLocationController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+
+
+    /**
+     * **Finds nearby stores within a given radius.**
+     */
     @GetMapping("/nearby")
     public ResponseEntity<List<StoreLocationDto>> getNearbyStores(
             @RequestParam Double latitude,

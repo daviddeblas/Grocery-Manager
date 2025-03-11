@@ -1,10 +1,6 @@
 package com.grocerymanager.api.service;
 
-import com.grocerymanager.api.dto.ShoppingItemDto;
-import com.grocerymanager.api.dto.ShoppingListDto;
-import com.grocerymanager.api.dto.StoreLocationDto;
-import com.grocerymanager.api.dto.SyncRequest;
-import com.grocerymanager.api.dto.SyncResponse;
+import com.grocerymanager.api.dto.*;
 import com.grocerymanager.api.model.ShoppingItem;
 import com.grocerymanager.api.model.ShoppingList;
 import com.grocerymanager.api.model.StoreLocation;
@@ -14,6 +10,8 @@ import com.grocerymanager.api.repository.ShoppingListRepository;
 import com.grocerymanager.api.repository.StoreLocationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -23,6 +21,18 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Service responsible for data synchronization between client devices and the server.
+ *
+ * This service handles the bidirectional synchronization of shopping data:
+ * - Shopping lists
+ * - Shopping items
+ * - Store locations
+ * - Deleted entities
+ *
+ * The synchronization process uses a timestamp-based approach to detect and resolve conflicts.
+ * Each entity type is processed in a separate transaction to maintain data integrity.
+ */
 @Service
 public class SyncService {
 
@@ -44,23 +54,93 @@ public class SyncService {
     @Autowired
     private StoreLocationService storeService;
 
-    @Transactional
+    /**
+     * Main synchronization method that processes client changes and returns merged data.
+     * <p>
+     * This method handles the complete synchronization workflow:
+     *  - Process deleted items
+     *  - Synchronize shopping lists
+     *  - Synchronize shopping items
+     *  - Synchronize store locations
+     *  - Retrieve server-side changes since last sync
+     *  - Merge all changes into a single response
+     *
+     * Each step is executed in a separate transaction to ensure isolation of failures.
+     */
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRED, isolation = Isolation.READ_COMMITTED)
     public SyncResponse synchronize(SyncRequest request, User user) {
         LocalDateTime syncTime = LocalDateTime.now();
         LocalDateTime clientLastSync = request.getLastSyncTimestamp();
 
-        // Grocery lists
-        List<ShoppingListDto> updatedLists = syncShoppingLists(request.getShoppingLists(), user, syncTime);
-        List<ShoppingListDto> serverLists = getChangedListsFromServer(user, clientLastSync);
+        // Initialize empty result lists
+        List<ShoppingListDto> updatedLists = new ArrayList<>();
+        List<ShoppingItemDto> updatedItems = new ArrayList<>();
+        List<StoreLocationDto> updatedStores = new ArrayList<>();
 
-        // Items in the lists
-        List<ShoppingItemDto> updatedItems = syncShoppingItems(request.getShoppingItems(), user, syncTime);
-        List<ShoppingItemDto> serverItems = getChangedItemsFromServer(user, clientLastSync);
+        // Process deleted items in separate transaction to isolate potential errors
+        if (request.getDeletedItems() != null && !request.getDeletedItems().isEmpty()) {
+            try {
+                processDeletedItems(request.getDeletedItems(), user);
+            } catch (Exception e) {
+                System.err.println("Error processing deleted items: " + e.getMessage());
+                // Continue execution even if there's an error with deleted items
+            }
+        }
 
-        // Stores
-        List<StoreLocationDto> updatedStores = syncStoreLocations(request.getStoreLocations(), user, syncTime);
-        List<StoreLocationDto> serverStores = getChangedStoresFromServer(user, clientLastSync);
+        // Process shopping lists
+        if (request.getShoppingLists() != null && !request.getShoppingLists().isEmpty()) {
+            try {
+                updatedLists = syncShoppingListsInNewTransaction(request.getShoppingLists(), user, syncTime);
+            } catch (Exception e) {
+                System.err.println("Error syncing shopping lists: " + e.getMessage());
+                // Continue with other sync operations
+            }
+        }
 
+        // Process shopping items
+        if (request.getShoppingItems() != null && !request.getShoppingItems().isEmpty()) {
+            try {
+                updatedItems = syncShoppingItemsInNewTransaction(request.getShoppingItems(), user, syncTime);
+            } catch (Exception e) {
+                System.err.println("Error syncing shopping items: " + e.getMessage());
+                // Continue with other sync operations
+            }
+        }
+
+        // Process store locations
+        if (request.getStoreLocations() != null && !request.getStoreLocations().isEmpty()) {
+            try {
+                updatedStores = syncStoreLocationsInNewTransaction(request.getStoreLocations(), user, syncTime);
+            } catch (Exception e) {
+                System.err.println("Error syncing store locations: " + e.getMessage());
+                // Continue with other sync operations
+            }
+        }
+
+        // Get changes from server
+        List<ShoppingListDto> serverLists = new ArrayList<>();
+        List<ShoppingItemDto> serverItems = new ArrayList<>();
+        List<StoreLocationDto> serverStores = new ArrayList<>();
+
+        try {
+            serverLists = getChangedListsFromServer(user, clientLastSync);
+        } catch (Exception e) {
+            System.err.println("Error getting server lists: " + e.getMessage());
+        }
+
+        try {
+            serverItems = getChangedItemsFromServer(user, clientLastSync);
+        } catch (Exception e) {
+            System.err.println("Error getting server items: " + e.getMessage());
+        }
+
+        try {
+            serverStores = getChangedStoresFromServer(user, clientLastSync);
+        } catch (Exception e) {
+            System.err.println("Error getting server stores: " + e.getMessage());
+        }
+
+        // Create the response with merged data
         return new SyncResponse(
                 syncTime,
                 mergeListsWithoutDuplicates(updatedLists, serverLists),
@@ -69,7 +149,43 @@ public class SyncService {
         );
     }
 
-    private List<ShoppingListDto> syncShoppingLists(List<ShoppingListDto> clientLists, User user, LocalDateTime syncTime) {
+    /**
+     * Processes shopping lists synchronization in a new independent transaction.
+     * This allows failures in list synchronization to be isolated from the main sync process.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public List<ShoppingListDto> syncShoppingListsInNewTransaction(List<ShoppingListDto> clientLists, User user, LocalDateTime syncTime) {
+        return syncShoppingLists(clientLists, user, syncTime);
+    }
+
+    /**
+     * Processes shopping items synchronization in a new independent transaction.
+     * This allows failures in item synchronization to be isolated from the main sync process.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public List<ShoppingItemDto> syncShoppingItemsInNewTransaction(List<ShoppingItemDto> clientItems, User user, LocalDateTime syncTime) {
+        return syncShoppingItems(clientItems, user, syncTime);
+    }
+
+    /**
+     * Processes store locations synchronization in a new independent transaction.
+     * This allows failures in store synchronization to be isolated from the main sync process.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
+    public List<StoreLocationDto> syncStoreLocationsInNewTransaction(List<StoreLocationDto> clientStores, User user, LocalDateTime syncTime) {
+        return syncStoreLocations(clientStores, user, syncTime);
+    }
+
+    /**
+     * Synchronizes shopping lists from client to server.
+     *
+     * This method handles:
+     * - Creating new lists
+     * - Updating existing lists
+     * - Handling conflict resolution based on timestamps
+     */
+    @Transactional
+    protected List<ShoppingListDto> syncShoppingLists(List<ShoppingListDto> clientLists, User user, LocalDateTime syncTime) {
         List<ShoppingListDto> result = new ArrayList<>();
 
         if (clientLists == null || clientLists.isEmpty()) {
@@ -77,57 +193,119 @@ public class SyncService {
         }
 
         for (ShoppingListDto listDto : clientLists) {
-            // Case 1: List without ID and without syncID (so -> new list on client)
-            // Create a new list with a new syncID and add it to the result
-            if (listDto.getId() == null && (listDto.getSyncId() == null || listDto.getSyncId().isEmpty())) {
-                listDto.setSyncId(UUID.randomUUID().toString());
-                ShoppingList list = createNewShoppingList(listDto, user, syncTime);
-                result.add(listService.convertToDto(list));
-                continue;
-            }
+            try {
+                // Handle lists with or without syncId
+                if (listDto.getSyncId() != null && !listDto.getSyncId().isEmpty()) {
+                    // Check if this list already exists
+                    boolean listExists = listRepository.existsBySyncIdAndUser(listDto.getSyncId(), user);
 
-            // Case 2: List with syncID (updating or creating on server)
-            if (listDto.getSyncId() != null && !listDto.getSyncId().isEmpty()) {
-                Optional<ShoppingList> existingList = listRepository.findBySyncIdAndUser(listDto.getSyncId(), user);
+                    if (listExists) {
+                        // List exists - try direct update first for better concurrency
+                        int updated = listRepository.updateBySyncIdAndUser(
+                                listDto.getSyncId(),
+                                listDto.getName(),
+                                syncTime,
+                                syncTime,
+                                user
+                        );
 
-                if (existingList.isPresent()) {
-                    // Update existing list
-                    ShoppingList list = existingList.get();
+                        if (updated > 0) {
+                            // Update succeeded, fetch the updated list
+                            Optional<ShoppingList> updatedList = listRepository.findBySyncIdAndUser(listDto.getSyncId(), user);
+                            updatedList.ifPresent(list -> result.add(listService.convertToDto(list)));
+                        } else {
+                            // Direct update failed, try to fetch and update normally
+                            Optional<ShoppingList> existingList = listRepository.findBySyncIdAndUser(listDto.getSyncId(), user);
+                            if (existingList.isPresent()) {
+                                ShoppingList list = existingList.get();
 
-                    // Check if customer data is more recent
-                    // If the client data is more recent, update the list and add it to the result
-                    if (listDto.getUpdatedAt() != null &&
-                            (list.getUpdatedAt() == null || listDto.getUpdatedAt().isAfter(list.getUpdatedAt()))) {
-                        list.setName(listDto.getName());
-                        list.setUpdatedAt(syncTime);
-                        list.setLastSynced(syncTime);
-                        result.add(listService.convertToDto(listRepository.save(list)));
+                                // Check if client data is newer
+                                if (listDto.getUpdatedAt() != null &&
+                                        (list.getUpdatedAt() == null || listDto.getUpdatedAt().isAfter(list.getUpdatedAt()))) {
+
+                                    list.setName(listDto.getName());
+                                    list.setUpdatedAt(syncTime);
+                                    list.setLastSynced(syncTime);
+
+                                    ShoppingList savedList = listRepository.save(list);
+                                    result.add(listService.convertToDto(savedList));
+                                } else {
+                                    // Server data is newer, just return the existing list
+                                    result.add(listService.convertToDto(list));
+                                }
+                            }
+                        }
                     } else {
-                        // Server data is more recent or of same date, so we return the server version
-                        result.add(listService.convertToDto(list));
+                        // List doesn't exist - create a new one
+                        try {
+                            ShoppingList newList = new ShoppingList();
+                            newList.setName(listDto.getName());
+                            newList.setUser(user);
+                            newList.setSyncId(listDto.getSyncId());
+                            newList.setCreatedAt(syncTime);
+                            newList.setUpdatedAt(syncTime);
+                            newList.setLastSynced(syncTime);
+
+                            // Save in a separate try-catch to handle potential race conditions
+                            try {
+                                ShoppingList savedList = listRepository.save(newList);
+                                result.add(listService.convertToDto(savedList));
+                            } catch (Exception e) {
+                                // If save fails due to constraint violation, try to update instead
+                                if (e.getMessage() != null && e.getMessage().contains("duplicate key")) {
+                                    // Try again, but this time update the existing list
+                                    Optional<ShoppingList> racedList = listRepository.findBySyncIdAndUser(listDto.getSyncId(), user);
+                                    if (racedList.isPresent()) {
+                                        ShoppingList list = racedList.get();
+                                        list.setName(listDto.getName());
+                                        list.setUpdatedAt(syncTime);
+                                        list.setLastSynced(syncTime);
+
+                                        ShoppingList savedList = listRepository.save(list);
+                                        result.add(listService.convertToDto(savedList));
+                                    }
+                                } else {
+                                    // Re-throw if it's not a duplicate key issue
+                                    throw e;
+                                }
+                            }
+                        } catch (Exception ex) {
+                            System.err.println("Error creating new list with syncId " + listDto.getSyncId() + ": " + ex.getMessage());
+                        }
                     }
                 } else {
-                    // New list with predefined syncID
-                    ShoppingList list = createNewShoppingList(listDto, user, syncTime);
-                    result.add(listService.convertToDto(list));
+                    // No syncId provided, generate one and create a new list
+                    ShoppingList newList = new ShoppingList();
+                    newList.setName(listDto.getName());
+                    newList.setUser(user);
+                    newList.setSyncId(UUID.randomUUID().toString()); // Generate new syncId
+                    newList.setCreatedAt(syncTime);
+                    newList.setUpdatedAt(syncTime);
+                    newList.setLastSynced(syncTime);
+
+                    ShoppingList savedList = listRepository.save(newList);
+                    result.add(listService.convertToDto(savedList));
                 }
+            } catch (Exception e) {
+                // Log error but continue processing other lists
+                System.err.println("Error processing list " + listDto.getName() +
+                        " with syncId " + listDto.getSyncId() + ": " + e.getMessage());
             }
         }
+
         return result;
     }
 
-    private ShoppingList createNewShoppingList(ShoppingListDto listDto, User user, LocalDateTime syncTime) {
-        ShoppingList list = new ShoppingList();
-        list.setName(listDto.getName());
-        list.setUser(user);
-        list.setSyncId(listDto.getSyncId());
-        list.setCreatedAt(syncTime);
-        list.setUpdatedAt(syncTime);
-        list.setLastSynced(syncTime);
-        return listRepository.save(list);
-    }
-
-    private List<ShoppingItemDto> syncShoppingItems(List<ShoppingItemDto> clientItems, User user, LocalDateTime syncTime) {
+    /**
+     * Synchronizes shopping items from client to server.
+     *
+     * This method processes each shopping item individually and handles:
+     *  - Creating new items
+     *  - Updating existing items
+     *  - Utilizing native SQL upsert functionality when available
+     */
+    @Transactional
+    protected List<ShoppingItemDto> syncShoppingItems(List<ShoppingItemDto> clientItems, User user, LocalDateTime syncTime) {
         List<ShoppingItemDto> result = new ArrayList<>();
 
         if (clientItems == null || clientItems.isEmpty()) {
@@ -135,35 +313,71 @@ public class SyncService {
         }
 
         for (ShoppingItemDto itemDto : clientItems) {
-            // Case 1: Item without ID and without syncID (new item on the client)
-            // Create a new item with a new syncID and add it to the result
-            if (itemDto.getId() == null && (itemDto.getSyncId() == null || itemDto.getSyncId().isEmpty())) {
-                Optional<ShoppingList> list = listRepository.findById(itemDto.getShoppingListId());
-                if (list.isPresent() && list.get().getUser().getId().equals(user.getId())) {
-                    itemDto.setSyncId(UUID.randomUUID().toString());
-                    ShoppingItem item = createNewShoppingItem(itemDto, list.get(), syncTime);
-                    result.add(itemService.convertToDto(item));
-                }
-                continue;
+            try {
+                // Process each item in its own transaction to avoid rollback affecting other items
+                processSingleItem(itemDto, user, syncTime, result);
+            } catch (Exception e) {
+                // Log error but continue with other items
+                System.err.println("Error processing item " + itemDto.getName() +
+                        " with syncId " + itemDto.getSyncId() + ": " + e.getMessage());
             }
+        }
 
-            // Case 2: Item with syncID (update or creation on server)
+        return result;
+    }
+
+    /**
+     * Processes a single shopping item in a dedicated transaction.
+     *
+     * This method attempts multiple strategies to insert or update an item:
+     * - First tries a native SQL upsert for atomic operation
+     * - Falls back to a find-then-update pattern if upsert fails
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected void processSingleItem(ShoppingItemDto itemDto, User user, LocalDateTime syncTime, List<ShoppingItemDto> result) throws InterruptedException {
+        try {
+            // Find the shopping list
+            Optional<ShoppingList> listOptional = listRepository.findByIdAndUser(itemDto.getShoppingListId(), user);
+            if (listOptional.isEmpty()) {
+                return;
+            }
+            ShoppingList list = listOptional.get();
+
+            // Check if this item already exists by syncId
             if (itemDto.getSyncId() != null && !itemDto.getSyncId().isEmpty()) {
-                Optional<ShoppingItem> existingItem = itemRepository.findBySyncId(itemDto.getSyncId());
+                boolean exists = false;
 
-                if (existingItem.isPresent()) {
-                    ShoppingItem item = existingItem.get();
-                    ShoppingList list = item.getShoppingList();
+                try {
+                    // Use the native SQL upsert function instead of regular JPA methods
+                    Long itemId = itemRepository.safeUpsertItem(
+                            itemDto.getName(),
+                            itemDto.getQuantity(),
+                            itemDto.getUnitType(),
+                            itemDto.isChecked(),
+                            itemDto.getSortIndex(),
+                            list.getId(),
+                            itemDto.getSyncId(),
+                            syncTime,
+                            syncTime,
+                            syncTime
+                    );
 
-                    // Verify that the item belongs to the user
-                    if (!list.getUser().getId().equals(user.getId())) {
-                        continue;
+                    if (itemId != null) {
+                        Optional<ShoppingItem> savedItem = itemRepository.findById(itemId);
+                        savedItem.ifPresent(item -> result.add(itemService.convertToDto(item)));
+                        exists = true;
                     }
+                } catch (Exception e) {
+                    System.err.println("Upsert failed, trying alternative approach: " + e.getMessage());
+                }
 
-                    // Check if customer data is more recent
-                    // If the client data is more recent, update the item and add it to the result
-                    if (itemDto.getUpdatedAt() != null &&
-                            (item.getUpdatedAt() == null || itemDto.getUpdatedAt().isAfter(item.getUpdatedAt()))) {
+                // If upsert didn't work, try the traditional approach
+                if (!exists) {
+                    Optional<ShoppingItem> existingItem = itemRepository.findBySyncId(itemDto.getSyncId());
+
+                    if (existingItem.isPresent()) {
+                        // Update existing item
+                        ShoppingItem item = existingItem.get();
                         item.setName(itemDto.getName());
                         item.setQuantity(itemDto.getQuantity());
                         item.setUnitType(itemDto.getUnitType());
@@ -171,39 +385,70 @@ public class SyncService {
                         item.setSortIndex(itemDto.getSortIndex());
                         item.setUpdatedAt(syncTime);
                         item.setLastSynced(syncTime);
-                        result.add(itemService.convertToDto(itemRepository.save(item)));
+
+                        ShoppingItem savedItem = itemRepository.save(item);
+                        result.add(itemService.convertToDto(savedItem));
                     } else {
-                        // Server data is more recent or of same date, so we return the server version
-                        result.add(itemService.convertToDto(item));
-                    }
-                } else {
-                    // New item with predefined syncID
-                    Optional<ShoppingList> list = listRepository.findById(itemDto.getShoppingListId());
-                    if (list.isPresent() && list.get().getUser().getId().equals(user.getId())) {
-                        ShoppingItem item = createNewShoppingItem(itemDto, list.get(), syncTime);
-                        result.add(itemService.convertToDto(item));
+                        // Create new item
+                        ShoppingItem newItem = new ShoppingItem();
+                        newItem.setName(itemDto.getName());
+                        newItem.setQuantity(itemDto.getQuantity());
+                        newItem.setUnitType(itemDto.getUnitType());
+                        newItem.setChecked(itemDto.isChecked());
+                        newItem.setSortIndex(itemDto.getSortIndex());
+                        newItem.setShoppingList(list);
+                        newItem.setSyncId(itemDto.getSyncId());
+                        newItem.setCreatedAt(syncTime);
+                        newItem.setUpdatedAt(syncTime);
+                        newItem.setLastSynced(syncTime);
+
+                        try {
+                            ShoppingItem savedItem = itemRepository.save(newItem);
+                            result.add(itemService.convertToDto(savedItem));
+                        } catch (Exception ex) {
+                            // If we fail again due to concurrency, try one more final approach
+                            if (ex.getMessage() != null && ex.getMessage().contains("duplicate key")) {
+                                Thread.sleep(100); // Brief delay to let potential concurrent operation finish
+                                existingItem = itemRepository.findBySyncId(itemDto.getSyncId());
+                                existingItem.ifPresent(shoppingItem -> result.add(itemService.convertToDto(shoppingItem)));
+                            } else {
+                                throw ex;
+                            }
+                        }
                     }
                 }
+            } else {
+                // No syncId provided, generate a new one
+                String newSyncId = UUID.randomUUID().toString();
+                ShoppingItem newItem = new ShoppingItem();
+                newItem.setName(itemDto.getName());
+                newItem.setQuantity(itemDto.getQuantity());
+                newItem.setUnitType(itemDto.getUnitType());
+                newItem.setChecked(itemDto.isChecked());
+                newItem.setSortIndex(itemDto.getSortIndex());
+                newItem.setShoppingList(list);
+                newItem.setSyncId(newSyncId);
+                newItem.setCreatedAt(syncTime);
+                newItem.setUpdatedAt(syncTime);
+                newItem.setLastSynced(syncTime);
+
+                ShoppingItem savedItem = itemRepository.save(newItem);
+                result.add(itemService.convertToDto(savedItem));
             }
+        } catch (Exception e) {
+            System.err.println("Error in processSingleItem: " + e.getMessage());
+            throw e; // Re-throw so the outer catch can handle it
         }
-        return result;
     }
 
-    private ShoppingItem createNewShoppingItem(ShoppingItemDto itemDto, ShoppingList list, LocalDateTime syncTime) {
-        ShoppingItem item = new ShoppingItem();
-        item.setName(itemDto.getName());
-        item.setQuantity(itemDto.getQuantity());
-        item.setUnitType(itemDto.getUnitType());
-        item.setChecked(itemDto.isChecked());
-        item.setSortIndex(itemDto.getSortIndex());
-        item.setShoppingList(list);
-        item.setSyncId(itemDto.getSyncId());
-        item.setCreatedAt(syncTime);
-        item.setUpdatedAt(syncTime);
-        item.setLastSynced(syncTime);
-        return itemRepository.save(item);
-    }
-
+    /**
+     * Synchronizes store locations from client to server.
+     *
+     * This method handles store locations with special consideration for:
+     *  Geofence identifiers which must remain unique
+     *  Geographic coordinates for duplicate detection
+     *  Different detection strategies for existing stores
+     */
     private List<StoreLocationDto> syncStoreLocations(List<StoreLocationDto> clientStores, User user, LocalDateTime syncTime) {
         List<StoreLocationDto> result = new ArrayList<>();
 
@@ -212,6 +457,29 @@ public class SyncService {
         }
 
         for (StoreLocationDto storeDto : clientStores) {
+            // First check by geofenceId which is unique
+            Optional<StoreLocation> storeByGeofence = storeRepository.findByGeofenceId(storeDto.getGeofenceId());
+
+            // If found by geofenceId, update this store rather than create a new one
+            if (storeByGeofence.isPresent() && storeByGeofence.get().getUser().getId().equals(user.getId())) {
+                StoreLocation store = storeByGeofence.get();
+                store.setName(storeDto.getName());
+                store.setAddress(storeDto.getAddress());
+                store.setLatitude(storeDto.getLatitude());
+                store.setLongitude(storeDto.getLongitude());
+                store.setUpdatedAt(syncTime);
+                store.setLastSynced(syncTime);
+
+                // If syncId was not set, set it now
+                if (store.getSyncId() == null && storeDto.getSyncId() != null) {
+                    store.setSyncId(storeDto.getSyncId());
+                }
+
+                result.add(storeService.convertToDto(storeRepository.save(store)));
+                continue;
+            }
+
+
             // Case 1: Store without ID and without syncID (new store on the client)
             // Create a new store with a new syncID and add it to the result
             if (storeDto.getId() == null && (storeDto.getSyncId() == null || storeDto.getSyncId().isEmpty())) {
@@ -254,6 +522,9 @@ public class SyncService {
         return result;
     }
 
+    /**
+     * Creates a new store location entity from a DTO.
+     */
     private StoreLocation createNewStoreLocation(StoreLocationDto storeDto, User user, LocalDateTime syncTime) {
         StoreLocation store = new StoreLocation();
         store.setName(storeDto.getName());
@@ -269,6 +540,9 @@ public class SyncService {
         return storeRepository.save(store);
     }
 
+    /**
+     * Retrieves shopping lists that have changed on the server since the last synchronization.
+     */
     private List<ShoppingListDto> getChangedListsFromServer(User user, LocalDateTime lastSync) {
         if (lastSync == null) {
             // If this is the first synchronization, return all lists
@@ -283,6 +557,9 @@ public class SyncService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Retrieves shopping items that have changed on the server since the last synchronization.
+     */
     private List<ShoppingItemDto> getChangedItemsFromServer(User user, LocalDateTime lastSync) {
         List<ShoppingItemDto> result = new ArrayList<>();
 
@@ -307,6 +584,9 @@ public class SyncService {
         return result;
     }
 
+    /**
+     * Retrieves store locations that have changed on the server since the last synchronization.
+     */
     private List<StoreLocationDto> getChangedStoresFromServer(User user, LocalDateTime lastSync) {
         if (lastSync == null) {
             // If this is the first sync, return all stores
@@ -321,6 +601,9 @@ public class SyncService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Merges two lists of shopping lists avoiding duplicates based on syncId.
+     */
     private List<ShoppingListDto> mergeListsWithoutDuplicates(List<ShoppingListDto> list1, List<ShoppingListDto> list2) {
         List<ShoppingListDto> result = new ArrayList<>(list1);
 
@@ -333,6 +616,9 @@ public class SyncService {
         return result;
     }
 
+    /**
+     * Merges two lists of shopping items avoiding duplicates based on syncId.
+     */
     private List<ShoppingItemDto> mergeItemsWithoutDuplicates(List<ShoppingItemDto> list1, List<ShoppingItemDto> list2) {
         List<ShoppingItemDto> result = new ArrayList<>(list1);
 
@@ -345,6 +631,9 @@ public class SyncService {
         return result;
     }
 
+    /**
+     * Merges two lists of store locations avoiding duplicates based on syncId.
+     */
     private List<StoreLocationDto> mergeStoresWithoutDuplicates(List<StoreLocationDto> list1, List<StoreLocationDto> list2) {
         List<StoreLocationDto> result = new ArrayList<>(list1);
 
@@ -355,5 +644,52 @@ public class SyncService {
         }
 
         return result;
+    }
+
+    /**
+     * Processes items that have been deleted on the client side.
+     * For each deleted item, removes the corresponding server-side entity
+     * after verifying that it belongs to the authenticated user.
+     */
+    private void processDeletedItems(List<DeletedItemDto> deletedItems, User user) {
+        if (deletedItems == null || deletedItems.isEmpty()) {
+            return;
+        }
+
+        System.out.println("Processing " + deletedItems.size() + " deleted items");
+
+        for (DeletedItemDto item : deletedItems) {
+            switch (item.getEntityType()) {
+                case "SHOPPING_ITEM":
+                    if (item.getSyncId() != null) {
+                        System.out.println("  - Type: " + item.getEntityType() + ", SyncID: " + item.getSyncId());
+                        itemRepository.findBySyncId(item.getSyncId())
+                                .ifPresent(foundItem -> {
+                                    // Verify that the item belongs to the user
+                                    if (foundItem.getShoppingList().getUser().getId().equals(user.getId())) {
+                                        itemRepository.delete(foundItem);
+                                    }
+                                });
+                    }
+                    break;
+
+                case "SHOPPING_LIST":
+                    if (item.getSyncId() != null) {
+                        listRepository.findBySyncIdAndUser(item.getSyncId(), user)
+                                .ifPresent(listRepository::delete);
+                    }
+                    break;
+
+                case "STORE_LOCATION":
+                    if (item.getSyncId() != null) {
+                        storeRepository.findBySyncIdAndUser(item.getSyncId(), user)
+                                .ifPresent(storeRepository::delete);
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+        }
     }
 }

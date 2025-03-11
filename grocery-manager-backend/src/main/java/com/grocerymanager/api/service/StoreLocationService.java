@@ -87,6 +87,13 @@ public class StoreLocationService {
                 .orElse(false);
     }
 
+    @Transactional
+    public Optional<StoreLocationDto> findByGeofenceIdAndUser(String geofenceId, User user) {
+        return storeLocationRepository.findByGeofenceId(geofenceId)
+                .filter(store -> store.getUser().getId().equals(user.getId()))
+                .map(this::convertToDto);
+    }
+
     public StoreLocationDto convertToDto(StoreLocation store) {
         StoreLocationDto dto = new StoreLocationDto();
         dto.setId(store.getId());

@@ -22,45 +22,52 @@
             app:titleTextColor="@android:color/white"/>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main container for scrollable content -->
-    <androidx.core.widget.NestedScrollView
+    <!-- SwipeRefreshLayout remplace NestedScrollView -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        android:paddingBottom="100dp">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <LinearLayout
+        <!-- Nous avons besoin d'un ScrollView à l'intérieur -->
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_height="match_parent"
+            android:paddingBottom="100dp">
 
-            <!-- RecyclerView which lists all shopping lists -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerViewLists"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:clipToPadding="false" />
+                android:orientation="vertical"
+                android:padding="16dp">
 
-            <!-- Title for the store section -->
-            <TextView
-                android:id="@+id/tvStoresTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:text="@string/stores_title"
-                android:textAppearance="?attr/textAppearanceHeadline6" />
+                <!-- RecyclerView which lists all shopping lists -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerViewLists"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false" />
 
-            <!-- RecyclerView which lists all the stores -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerViewStores"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clipToPadding="false"
-                android:paddingTop="8dp" />
+                <!-- Title for the store section -->
+                <TextView
+                    android:id="@+id/tvStoresTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="@string/stores_title"
+                    android:textAppearance="?attr/textAppearanceHeadline6" />
 
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+                <!-- RecyclerView which lists all the stores -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerViewStores"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:paddingTop="8dp" />
+
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <!-- Button to add a new shopping list -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton

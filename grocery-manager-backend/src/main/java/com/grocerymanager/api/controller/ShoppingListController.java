@@ -15,6 +15,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * Handles **CRUD operations** for shopping lists.
+ * - Retrieves, creates, updates, and deletes shopping lists.
+ * - Ensures users can only access their own shopping lists.
+ */
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/shopping-lists")

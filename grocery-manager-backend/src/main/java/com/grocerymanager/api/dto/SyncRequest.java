@@ -15,4 +15,5 @@ public class SyncRequest {
     private List<ShoppingListDto> shoppingLists;
     private List<ShoppingItemDto> shoppingItems;
     private List<StoreLocationDto> storeLocations;
+    private List<DeletedItemDto> deletedItems;
 }

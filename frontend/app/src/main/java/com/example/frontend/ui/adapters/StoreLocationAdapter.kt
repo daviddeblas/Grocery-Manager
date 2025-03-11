@@ -11,6 +11,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.frontend.R
 import com.example.frontend.data.model.StoreLocation
 
+/**
+ * StoreLocationAdapter displays each store location in a card layout.
+ */
 class StoreLocationAdapter(
     private val onDelete: (StoreLocation) -> Unit
 ) : ListAdapter<StoreLocation, StoreLocationAdapter.StoreViewHolder>(DiffCallback()) {
