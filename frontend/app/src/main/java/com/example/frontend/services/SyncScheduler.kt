@@ -29,8 +29,8 @@ object SyncScheduler {
 
         // Create a periodic work request
         val syncWorkRequest = PeriodicWorkRequestBuilder<SyncWorker>(
-            15, TimeUnit.MINUTES, // Intervalle minimum
-            5, TimeUnit.MINUTES // Flexibilité
+            15, TimeUnit.MINUTES, // Minimum interval
+            5, TimeUnit.MINUTES // Flexibility
         )
             .setConstraints(constraints)
             .build()

@@ -1,5 +1,6 @@
 package com.example.frontend.ui.activities
 
+import android.content.Context
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -104,12 +105,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Hides the keyboard when clicked outside of an EditText element.
+     * Intercepts touch events, it allows to:
+     * 1. Save any edited item names when clicking anywhere else
+     * 2. Hide the keyboard when clicked outside of an EditText element
+     *
+     * This ensures changes to item names are saved even if the user doesn't
+     * explicitly press Done or otherwise commit the changes.
      */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         if (ev.action == MotionEvent.ACTION_DOWN) {
             val v = currentFocus
             if (v is EditText) {
+                // Get the current adapter
+                val adapter = recyclerView.adapter
+
+                if (adapter is ManualShoppingAdapter) {
+                    // Find the ViewHolder corresponding to the currently focused field
+                    for (i in 0 until recyclerView.childCount) {
+                        val child = recyclerView.getChildAt(i)
+                        val holder = recyclerView.getChildViewHolder(child)
+
+                        if (holder is ManualShoppingAdapter.ItemViewHolder) {
+                            // Check if this ViewHolder contains the focused EditText
+                            val nameField = child.findViewById<EditText>(R.id.etName)
+                            if (nameField == v) {
+                                // This is a name field - check if there were any changes
+                                val currentText = nameField.text.toString().trim()
+                                val position = holder.bindingAdapterPosition
+
+                                if (position != RecyclerView.NO_POSITION && position < adapter.items.size) {
+                                    val item = adapter.items[position]
+
+                                    // If the text has changed, force save
+                                    if (currentText != item.name && currentText.isNotEmpty()) {
+                                        // Format the name (capitalize first letter)
+                                        val formattedName = if (currentText.length > 1) {
+                                            currentText.substring(0, 1).uppercase() + currentText.substring(1)
+                                        } else {
+                                            currentText.uppercase()
+                                        }
+
+                                        // Update the database
+                                        viewModel.updateItem(item.copy(name = formattedName))
+
+                                        // Trigger synchronization with backend
+                                        SyncScheduler.requestImmediateSync(this@MainActivity)
+                                    }
+                                }
+                                break
+                            }
+                        }
+                    }
+                }
+
+                // Hide the keyboard when clicking outside of an EditText
                 val outRect = android.graphics.Rect()
                 v.getGlobalVisibleRect(outRect)
                 if (!outRect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
@@ -121,6 +170,7 @@ class MainActivity : AppCompatActivity() {
         }
         return super.dispatchTouchEvent(ev)
     }
+
 
     /**
      * Configures the Toolbar as the ActionBar and applies window insets only to it.
