@@ -24,7 +24,7 @@ This application is an Android application designed to simplify your shopping li
 
 ### Option 2: QR Code Download
 
-![Download QR Code](https://qr-codes.io/5koRfd)
+![Download QR Code](docs/qr-code.png)
 
 ## 📱 Installation Requirements
 
