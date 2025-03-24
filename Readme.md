@@ -28,7 +28,7 @@ This application is an Android application designed to simplify your shopping li
 
 ## 📱 Installation Requirements
 
-- Android 8.0 (Oreo) or higher
+- Android 8.0 or higher
 
 ### Installation Steps
 
@@ -63,24 +63,6 @@ the project is continuously evolving.
 - JWT Authentication
 - RESTful API
 
-## 🐛 Reporting Issues
-
-Found a bug? Please open an issue with:
-- Detailed description
-- Steps to reproduce
-- Your device information
-
-## 📝 License
-
-[Specify your project's license]
-
-## 📞 Contact
-
-- Project Maintainer: David Deblas
-- Email: daviddeblas@protonmail.com
-
----
-
 ## 📄 License
 
 This project is open-source and available under the MIT License.
@@ -108,3 +90,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## 📞 Contact
+- Email: daviddeblas@protonmail.com
+
+---
