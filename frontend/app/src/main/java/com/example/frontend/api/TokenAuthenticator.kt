@@ -1,17 +1,15 @@
 package com.example.frontend.api
 
 import android.content.Context
-import com.example.frontend.api.model.TokenRefreshRequest
+import android.util.Log
 import com.example.frontend.utils.SessionManager
-import kotlinx.coroutines.runBlocking
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.Route
 
 /**
- * The class handles 401 Unauthorized responses by attempting to refresh the access token.
- * If the refresh is successful, it updates the tokens and retries the original request.
+ * Handles JWT authentication for API requests.
  */
 class TokenAuthenticator(private val context: Context) : Authenticator {
 
@@ -27,41 +25,12 @@ class TokenAuthenticator(private val context: Context) : Authenticator {
             return null
         }
 
-        // Check if we have a refresh token
-        val refreshToken = SessionManager.refreshToken ?: return null
+        // If error 404, we simply log out the user
+        Log.e("TokenAuthenticator", "JWT authentication failed: ${response.code}")
+        SessionManager.logout()
 
-        // Try to get a new access token
-        return runBlocking {
-            try {
-                // Create a temporary service without authentication
-                val tempRetrofit = createTemporaryRetrofit()
-                val authService = tempRetrofit.create(AuthService::class.java)
-
-                // Make refresh token request
-                val refreshResponse = authService.refreshToken(TokenRefreshRequest(refreshToken))
-
-                if (refreshResponse.isSuccessful) {
-                    val newTokens = refreshResponse.body()!!
-
-                    // Save the new tokens
-                    SessionManager.saveTokens(newTokens.accessToken, newTokens.refreshToken)
-
-                    // Retry original request with new token
-                    response.request.newBuilder()
-                        .header("Authorization", "Bearer ${newTokens.accessToken}")
-                        .header("X-Retry-Count", (retryCount + 1).toString())
-                        .build()
-                } else {
-                    // If refresh fails, force logout
-                    SessionManager.logout()
-                    null
-                }
-            } catch (e: Exception) {
-                // On error, force logout
-                SessionManager.logout()
-                null
-            }
-        }
+        // Returning null tells OkHttp not to retry the request
+        return null
     }
 
     // Create a temporary Retrofit instance without authentication

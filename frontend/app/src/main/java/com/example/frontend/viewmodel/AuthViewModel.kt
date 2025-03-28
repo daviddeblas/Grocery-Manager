@@ -7,7 +7,6 @@ import com.example.frontend.api.model.JwtResponse
 import com.example.frontend.api.model.LoginRequest
 import com.example.frontend.api.model.MessageResponse
 import com.example.frontend.api.model.SignupRequest
-import com.example.frontend.api.model.TokenRefreshRequest
 import com.example.frontend.utils.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,7 +41,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     val jwtResponse = response.body()!!
 
-                    SessionManager.saveTokens(jwtResponse.token, jwtResponse.refreshToken)
+                    SessionManager.saveTokens(jwtResponse.token)
 
                     // Save user information
                     SessionManager.userId = jwtResponse.id
@@ -65,32 +64,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun signup(signupRequest: SignupRequest): Response<MessageResponse> {
         return withContext(Dispatchers.IO) {
             authService.register(signupRequest)
-        }
-    }
-
-    /**
-     * **Refreshes the authentication token.**
-     */
-    suspend fun refreshToken(): Result<Boolean> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val refreshToken = SessionManager.refreshToken
-                    ?: return@withContext Result.failure(Exception("No refresh token available"))
-
-                val response = authService.refreshToken(TokenRefreshRequest(refreshToken))
-
-                if (response.isSuccessful) {
-                    val tokenResponse = response.body()!!
-                    SessionManager.saveTokens(tokenResponse.accessToken, tokenResponse.refreshToken)
-                    Result.success(true)
-                } else {
-                    SessionManager.logout()
-                    Result.failure(Exception("Failed to refresh token: ${response.code()}"))
-                }
-            } catch (e: Exception) {
-                SessionManager.logout()
-                Result.failure(e)
-            }
         }
     }
 

@@ -22,9 +22,6 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
     /** Manages synchronization operations with the server. */
     private val syncManager = SyncManager(appContext)
 
-    /** Handles authentication, including token refresh if needed. */
-    private val authViewModel = AuthViewModel(application = applicationContext as android.app.Application)
-
     /**
      * Performs background synchronization work:
      * - Runs in a background thread (`Dispatchers.IO`).
@@ -50,33 +47,17 @@ class SyncWorker(appContext: Context, workerParams: WorkerParameters) :
             if (syncResult.isSuccess) {
                 return@withContext Result.success()
             } else {
+                // 4. Handle authentication failure (e.g., token expired)
                 val error = syncResult.exceptionOrNull()
-
-                // 4. If the error is related to authentication (401 Unauthorized), refresh the token
                 if (error?.message?.contains("401") == true) {
-                    val refreshResult = authViewModel.refreshToken()
-
-                    if (refreshResult.isSuccess) {
-                        // 5. Retry synchronization with the new token
-                        val retrySyncResult = syncManager.synchronize()
-
-                        return@withContext if (retrySyncResult.isSuccess) {
-                            Result.success()
-                        } else {
-                            Result.retry()
-                        }
-                    } else {
-                        // 6. If token refresh fails, log out the user and return failure
-                        SessionManager.logout()
-                        return@withContext Result.failure()
-                    }
+                    SessionManager.logout()
+                    return@withContext Result.failure()
                 }
 
-                // 7. If the error is not authentication-related, retry later
                 return@withContext Result.retry()
             }
         } catch (e: Exception) {
-            // 8. Handle unexpected errors and retry later
+            // 5. Handle unexpected errors and retry later
             return@withContext Result.retry()
         }
     }
