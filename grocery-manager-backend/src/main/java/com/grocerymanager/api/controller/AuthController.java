@@ -1,11 +1,8 @@
 package com.grocerymanager.api.controller;
 
 import com.grocerymanager.api.dto.auth.*;
-import com.grocerymanager.api.exception.TokenRefreshException;
-import com.grocerymanager.api.model.RefreshToken;
 import com.grocerymanager.api.security.jwt.JwtUtils;
 import com.grocerymanager.api.security.service.UserDetailsImpl;
-import com.grocerymanager.api.service.RefreshTokenService;
 import com.grocerymanager.api.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +12,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import com.grocerymanager.api.repository.RefreshTokenRepository;
 
 /**
  * This controller handles authentication-related requests:
@@ -42,12 +38,6 @@ public class AuthController {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Autowired
-    private RefreshTokenService refreshTokenService;
-
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
     @PostMapping("/signin")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
@@ -58,11 +48,8 @@ public class AuthController {
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getId());
-
         return ResponseEntity.ok(new JwtResponse(
                 jwt,
-                refreshToken.getToken(),
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail()));
@@ -87,35 +74,8 @@ public class AuthController {
         return ResponseEntity.ok(new MessageResponse("User registered successfully!"));
     }
 
-    /**
-     * Handles refresh token request
-     * - Verifies if the refresh token exists in the database.
-     * - Generates a new JWT access token if valid.
-     * - If the token is expired or invalid, throws a `TokenRefreshException`..
-     */
-    @PostMapping("/refreshtoken")
-    public ResponseEntity<?> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
-        String requestRefreshToken = request.getRefreshToken();
-
-        return refreshTokenRepository.findByToken(requestRefreshToken)
-                .map(refreshTokenService::verifyExpiration)
-                .map(RefreshToken::getUser)
-                .map(user -> {
-                    String token = jwtUtils.generateTokenFromUsername(user.getUsername());
-                    return ResponseEntity.ok(new TokenRefreshResponse(token, requestRefreshToken));
-                })
-                .orElseThrow(() -> new TokenRefreshException(requestRefreshToken,
-                        "Refresh token is not in database!"));
-    }
-
     @PostMapping("/signout")
     public ResponseEntity<?> logoutUser() {
-        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        Long userId = userDetails.getId();
-        userService.findById(userId).ifPresent(user -> {
-            refreshTokenRepository.findByUser(user).ifPresent(refreshTokenRepository::delete);
-        });
-
         return ResponseEntity.ok(new MessageResponse("Log out successful!"));
     }
 }
