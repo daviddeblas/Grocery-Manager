@@ -5,6 +5,9 @@ import com.grocerymanager.api.security.jwt.JwtUtils;
 import com.grocerymanager.api.security.service.UserDetailsImpl;
 import com.grocerymanager.api.service.UserService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,17 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * This controller handles authentication-related requests:
- * - **User login (`/signin`)**
- * - **User registration (`/signup`)**
- * - **Token refresh (`/refreshtoken`)**
- * - **User logout (`/signout`)**
- *
- * It provides secure authentication using JWT and refresh tokens.
+ * Controller for handling authentication operations including login, registration,
+ * and password recovery.
  */
-// For each request, the client sends a OPTIONS request to the server to check if the server allows the request.
-// So by setting the maxAge to 3600 seconds, the client will only send the OPTIONS request once every hour.
-// This is to allow the client to cache the response from the server.
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
 @RequestMapping("/api/auth")
@@ -77,5 +72,27 @@ public class AuthController {
     @PostMapping("/signout")
     public ResponseEntity<?> logoutUser() {
         return ResponseEntity.ok(new MessageResponse("Log out successful!"));
+    }
+
+    /**
+     * For password recovery request
+     */
+    @Data
+    public static class ForgotPasswordRequest {
+        @NotBlank
+        @Email
+        private String email;
+    }
+
+    /**
+     * Sends the user their credentials (username and a temporary password).
+     */
+    @PostMapping("/send-credentials")
+    public ResponseEntity<?> sendCredentials(@Valid @RequestBody ForgotPasswordRequest request) {
+        boolean emailSent = userService.sendCredentials(request.getEmail());
+
+        // Always return success, even if email not found (security best practice)
+        return ResponseEntity.ok(new MessageResponse(
+                "If an account exists with that email, we've sent the login credentials."));
     }
 }
