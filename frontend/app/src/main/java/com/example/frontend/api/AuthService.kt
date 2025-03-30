@@ -15,4 +15,10 @@ interface AuthService {
 
     @POST("/api/auth/signout")
     suspend fun logout(): Response<MessageResponse>
+
+    /**
+     * Send the user's login credentials to their email
+     */
+    @POST("/api/auth/send-credentials")
+    suspend fun sendCredentials(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 }

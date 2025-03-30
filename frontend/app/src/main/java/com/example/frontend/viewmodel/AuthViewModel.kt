@@ -3,6 +3,7 @@ package com.example.frontend.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.example.frontend.api.APIClient
+import com.example.frontend.api.model.ForgotPasswordRequest
 import com.example.frontend.api.model.JwtResponse
 import com.example.frontend.api.model.LoginRequest
 import com.example.frontend.api.model.MessageResponse
@@ -87,5 +88,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun isLoggedIn(): Boolean {
         return SessionManager.isLoggedIn()
+    }
+
+    /**
+     * Sends the user's login credentials to their email.
+     *
+     */
+    suspend fun sendCredentials(email: String): Result<MessageResponse> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = authService.sendCredentials(ForgotPasswordRequest(email))
+
+                if (response.isSuccessful) {
+                    Result.success(response.body()!!)
+                } else {
+                    Result.failure(Exception("Error: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
     }
 }

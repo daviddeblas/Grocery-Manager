@@ -49,6 +49,11 @@ class LoginActivity : AppCompatActivity() {
         binding.tvSignup.setOnClickListener {
             startActivity(Intent(this, SignupActivity::class.java))
         }
+
+        // Link to forgot password
+        binding.tvForgotPassword.setOnClickListener {
+            startActivity(Intent(this, ForgotPasswordActivity::class.java))
+        }
     }
 
     private fun validateForm(): Boolean {
@@ -76,6 +81,7 @@ class LoginActivity : AppCompatActivity() {
 
         binding.btnLogin.isEnabled = false
         binding.tvSignup.isEnabled = false
+        binding.tvForgotPassword.isEnabled = false
 
         val username = binding.etUsername.text.toString()
         val password = binding.etPassword.text.toString()
@@ -103,6 +109,7 @@ class LoginActivity : AppCompatActivity() {
                         Toast.makeText(this@LoginActivity, errorMessage, Toast.LENGTH_LONG).show()
                         binding.btnLogin.isEnabled = true
                         binding.tvSignup.isEnabled = true
+                        binding.tvForgotPassword.isEnabled = true
                         binding.progressBar.visibility = View.GONE
                     }
                 )
@@ -110,6 +117,7 @@ class LoginActivity : AppCompatActivity() {
                 Toast.makeText(this@LoginActivity, R.string.network_error, Toast.LENGTH_LONG).show()
                 binding.btnLogin.isEnabled = true
                 binding.tvSignup.isEnabled = true
+                binding.tvForgotPassword.isEnabled = true
                 binding.progressBar.visibility = View.GONE
             }
         }

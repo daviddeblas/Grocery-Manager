@@ -23,14 +23,8 @@ data class JwtResponse(
     val email: String
 )
 
-data class TokenRefreshRequest(
-    @SerializedName("refreshToken") val refreshToken: String
-)
-
-data class TokenRefreshResponse(
-    @SerializedName("accessToken") val accessToken: String,
-    @SerializedName("refreshToken") val refreshToken: String,
-    @SerializedName("tokenType") val tokenType: String = "Bearer"
+data class ForgotPasswordRequest(
+    val email: String
 )
 
 data class MessageResponse(
