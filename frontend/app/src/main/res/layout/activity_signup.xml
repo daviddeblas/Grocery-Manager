@@ -12,8 +12,8 @@
         android:layout_width="120dp"
         android:layout_height="120dp"
         android:layout_marginTop="48dp"
+        android:background="@drawable/circular_background"
         android:src="@drawable/ic_launcher_foreground"
-        android:background="@drawable/rounded_background"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

@@ -88,6 +88,7 @@
     <string name="error_wrong_password">Incorrect password</string>
     <string name="sync_success">Sync completed</string>
     <string name="sync_failed">Sync failed</string>
+    <string name="app_slogan">Simplify your shopping</string>
     <string name="forgot_password">Forgot Password?</string>
     <string name="forgot_password_instructions">Enter your email address to receive your username and a temporary password.</string>
     <string name="send_credentials">Send Login Credentials</string>

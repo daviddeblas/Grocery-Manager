@@ -78,6 +78,7 @@
     <string name="login_failed">Échec de la connexion</string>
     <string name="signup_success">Inscription réussie !</string>
     <string name="signup_failed">Échec de l\'inscription</string>
+    <string name="app_slogan">Simplifiez vos courses</string>
     <string name="network_error">Erreur réseau. Vérifiez votre connexion</string>
     <string name="error_username_required">Le nom d\'utilisateur est requis</string>
     <string name="error_email_required">L\'email est requis</string>
