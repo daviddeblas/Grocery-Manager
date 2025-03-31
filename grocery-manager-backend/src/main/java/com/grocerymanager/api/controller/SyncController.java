@@ -4,7 +4,7 @@ import com.grocerymanager.api.dto.SyncRequest;
 import com.grocerymanager.api.dto.SyncResponse;
 import com.grocerymanager.api.model.User;
 import com.grocerymanager.api.security.service.UserDetailsImpl;
-import com.grocerymanager.api.service.SyncService;
+import com.grocerymanager.api.service.sync.SyncService;
 import com.grocerymanager.api.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
