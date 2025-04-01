@@ -4,41 +4,19 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+  <group android:scaleX="1.04"
+      android:scaleY="1.04"
+      android:translateX="-2.16"
+      android:translateY="-2.16">
+    <group android:scaleX="0.45"
+        android:scaleY="0.45"
+        android:translateX="29.7"
+        android:translateY="29.7">
 
-    <!-- Fond de la liste -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M32,28L76,28A4,4 0,0 1,80 32L80,76A4,4 0,0 1,76 80L32,80A4,4 0,0 1,28 76L28,32A4,4 0,0 1,32 28z" />
-
-    <!-- Ligne 1 -->
-    <path
-        android:fillColor="#4CAF50"
-        android:pathData="M38,40a2,2 0,1 0,4 0a2,2 0,1 0,-4 0" />
-    <path
-        android:fillColor="#757575"
-        android:pathData="M45,40L70,40A1,1 0,0 1,71 41L71,41A1,1 0,0 1,70 42L45,42A1,1 0,0 1,44 41L44,41A1,1 0,0 1,45 40z" />
-
-    <!-- Ligne 2 -->
-    <path
-        android:fillColor="#4CAF50"
-        android:pathData="M38,50a2,2 0,1 0,4 0a2,2 0,1 0,-4 0" />
-    <path
-        android:fillColor="#757575"
-        android:pathData="M45,50L70,50A1,1 0,0 1,71 51L71,51A1,1 0,0 1,70 52L45,52A1,1 0,0 1,44 51L44,51A1,1 0,0 1,45 50z" />
-
-    <!-- Ligne 3 -->
-    <path
-        android:fillColor="#4CAF50"
-        android:pathData="M38,60a2,2 0,1 0,4 0a2,2 0,1 0,-4 0" />
-    <path
-        android:fillColor="#757575"
-        android:pathData="M45,60L70,60A1,1 0,0 1,71 61L71,61A1,1 0,0 1,70 62L45,62A1,1 0,0 1,44 61L44,61A1,1 0,0 1,45 60z" />
-
-    <!-- Ligne 4 -->
-    <path
-        android:fillColor="#E0E0E0"
-        android:pathData="M38,70a2,2 0,1 0,4 0a2,2 0,1 0,-4 0" />
-    <path
-        android:fillColor="#E0E0E0"
-        android:pathData="M45,70L70,70A1,1 0,0 1,71 71L71,71A1,1 0,0 1,70 72L45,72A1,1 0,0 1,44 71L44,71A1,1 0,0 1,45 70z" />
+        <!-- Logo image -->
+        <path
+            android:fillColor="#2980b9"
+            android:pathData="M31.5,81c-4.95,0 -8.95,4.05 -8.95,9S26.55,99 31.5,99s9,-4.05 9,-9 -4.05,-9 -9,-9zM4.5,9v9h9l16.2,34.16 -6.08,11.03c-0.72,1.26 -1.12,2.74 -1.12,4.32 0,4.95 4.05,9 9,9h54v-9H33.39c-0.63,0 -1.12,-0.5 -1.12,-1.12l0.14,-0.54 4.05,-7.34h33.53c3.38,0 6.35,-1.85 7.88,-4.64l16.11,-29.21c0.36,-0.63 0.54,-1.4 0.54,-2.16 0,-2.47 -2.03,-4.5 -4.5,-4.5H23.45l-4.23,-9H4.5zM76.5,81c-4.95,0 -8.95,4.05 -8.95,9s4,9 8.95,9 9,-4.05 9,-9 -4.05,-9 -9,-9z" />
+    </group>
+  </group>
 </vector>

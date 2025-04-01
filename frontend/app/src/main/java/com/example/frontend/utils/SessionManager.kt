@@ -19,7 +19,6 @@ object SessionManager {
 
     /** Keys for storing session-related information */
     private const val KEY_TOKEN = "jwt_token"
-    private const val KEY_REFRESH_TOKEN = "refresh_token"
     private const val KEY_USER_ID = "user_id"
     private const val KEY_USERNAME = "username"
     private const val KEY_EMAIL = "email"
@@ -61,8 +60,6 @@ object SessionManager {
             // Log the current login state
             Log.d(TAG, "Current login state: ${isLoggedIn()}, access token: ${
                 if (token?.isNotEmpty() == true) "exists" else "missing"
-            }, refresh token: ${
-                if (refreshToken?.isNotEmpty() == true) "exists" else "missing"
             }")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing SessionManager", e)
@@ -97,30 +94,11 @@ object SessionManager {
             }
         }
 
-    // Refresh token (Retrieves the stored refresh token)
-    var refreshToken: String?
-        get() {
-            ensureInitialized()
-            return sharedPreferences.getString(KEY_REFRESH_TOKEN, null)
-        }
-        set(value) {
-            ensureInitialized()
-            with(sharedPreferences.edit()) {
-                if (value != null) {
-                    putString(KEY_REFRESH_TOKEN, value)
-                } else {
-                    remove(KEY_REFRESH_TOKEN)
-                }
-                commit() // Immediate write
-            }
-        }
-
     // Saves both the access token and refresh token
-    fun saveTokens(accessToken: String, refreshToken: String) {
+    fun saveTokens(accessToken: String) {
         ensureInitialized()
         with(sharedPreferences.edit()) {
             putString(KEY_TOKEN, accessToken)
-            putString(KEY_REFRESH_TOKEN, refreshToken)
             commit() // Use commit for immediate write
         }
         Log.d(TAG, "Tokens saved successfully")
@@ -203,12 +181,9 @@ object SessionManager {
         }
 
         val hasAccessToken = !token.isNullOrEmpty()
-        val hasRefreshToken = !refreshToken.isNullOrEmpty()
+        Log.d(TAG, "Login check: Access token ${if (hasAccessToken) "exists" else "missing"}")
 
-        Log.d(TAG, "Login check: Access token ${if (hasAccessToken) "exists" else "missing"}, " +
-                "Refresh token ${if (hasRefreshToken) "exists" else "missing"}")
-
-        return hasAccessToken && hasRefreshToken
+        return hasAccessToken
     }
 
     /**
@@ -218,7 +193,6 @@ object SessionManager {
         ensureInitialized()
         with(sharedPreferences.edit()) {
             remove(KEY_TOKEN)
-            remove(KEY_REFRESH_TOKEN)
             remove(KEY_USER_ID)
             remove(KEY_USERNAME)
             remove(KEY_EMAIL)

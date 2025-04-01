@@ -78,6 +78,7 @@
     <string name="login_failed">Échec de la connexion</string>
     <string name="signup_success">Inscription réussie !</string>
     <string name="signup_failed">Échec de l\'inscription</string>
+    <string name="app_slogan">Simplifiez vos courses</string>
     <string name="network_error">Erreur réseau. Vérifiez votre connexion</string>
     <string name="error_username_required">Le nom d\'utilisateur est requis</string>
     <string name="error_email_required">L\'email est requis</string>
@@ -86,4 +87,11 @@
     <string name="error_password_short">Le mot de passe doit contenir au moins 6 caractères</string>
     <string name="error_account_not_found">Ce compte n\'existe pas. Veuillez vous inscrire.</string>
     <string name="error_wrong_password">Mot de passe incorrect</string>
+
+    <!-- Mot de passe oublié -->
+    <string name="forgot_password">Mot de passe oublié ?</string>
+    <string name="forgot_password_instructions">Entrez votre adresse e-mail pour recevoir votre nom d\'utilisateur et un mot de passe temporaire.</string>
+    <string name="send_credentials">Envoyer les identifiants</string>
+    <string name="back_to_login">Retour à la connexion</string>
+    <string name="credentials_sent">Vos identifiants de connexion ont été envoyés à votre e-mail.</string>
 </resources>

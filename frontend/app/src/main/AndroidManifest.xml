@@ -57,6 +57,11 @@
             android:exported="true"
             android:windowSoftInputMode="adjustPan|stateHidden"
             android:theme="@style/Theme.Frontend" />
+
+        <!-- Forgot Password Activity -->
+        <activity
+            android:name=".ui.auth.ForgotPasswordActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -154,6 +154,28 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 break
                             }
+
+                            // Check if this ViewHolder contains the focused EditText for quantity
+                            val quantityField = child.findViewById<EditText>(R.id.etQuantityValue)
+                            if (quantityField == v) {
+                                val currentText = quantityField.text.toString().trim()
+                                val position = holder.bindingAdapterPosition
+
+                                if (position != RecyclerView.NO_POSITION && position < adapter.items.size) {
+                                    val item = adapter.items[position]
+
+                                    // If the quantity has changed, force save
+                                    val newQuantity = currentText.toDoubleOrNull()
+                                    if (newQuantity != null && newQuantity != item.quantity) {
+                                        // Update the database
+                                        viewModel.updateItem(item.copy(quantity = newQuantity))
+
+                                        // Trigger synchronization with backend
+                                        SyncScheduler.requestImmediateSync(this@MainActivity)
+                                    }
+                                }
+                                break
+                            }
                         }
                     }
                 }

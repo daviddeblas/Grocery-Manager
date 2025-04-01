@@ -13,9 +13,12 @@ interface AuthService {
     @POST("/api/auth/signup")
     suspend fun register(@Body signupRequest: SignupRequest): Response<MessageResponse>
 
-    @POST("/api/auth/refreshtoken")
-    suspend fun refreshToken(@Body refreshRequest: TokenRefreshRequest): Response<TokenRefreshResponse>
-
     @POST("/api/auth/signout")
     suspend fun logout(): Response<MessageResponse>
+
+    /**
+     * Send the user's login credentials to their email
+     */
+    @POST("/api/auth/send-credentials")
+    suspend fun sendCredentials(@Body request: ForgotPasswordRequest): Response<MessageResponse>
 }

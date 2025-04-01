@@ -3,11 +3,11 @@ package com.example.frontend.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import com.example.frontend.api.APIClient
+import com.example.frontend.api.model.ForgotPasswordRequest
 import com.example.frontend.api.model.JwtResponse
 import com.example.frontend.api.model.LoginRequest
 import com.example.frontend.api.model.MessageResponse
 import com.example.frontend.api.model.SignupRequest
-import com.example.frontend.api.model.TokenRefreshRequest
 import com.example.frontend.utils.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -42,7 +42,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     val jwtResponse = response.body()!!
 
-                    SessionManager.saveTokens(jwtResponse.token, jwtResponse.refreshToken)
+                    SessionManager.saveTokens(jwtResponse.token)
 
                     // Save user information
                     SessionManager.userId = jwtResponse.id
@@ -68,32 +68,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * **Refreshes the authentication token.**
-     */
-    suspend fun refreshToken(): Result<Boolean> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val refreshToken = SessionManager.refreshToken
-                    ?: return@withContext Result.failure(Exception("No refresh token available"))
-
-                val response = authService.refreshToken(TokenRefreshRequest(refreshToken))
-
-                if (response.isSuccessful) {
-                    val tokenResponse = response.body()!!
-                    SessionManager.saveTokens(tokenResponse.accessToken, tokenResponse.refreshToken)
-                    Result.success(true)
-                } else {
-                    SessionManager.logout()
-                    Result.failure(Exception("Failed to refresh token: ${response.code()}"))
-                }
-            } catch (e: Exception) {
-                SessionManager.logout()
-                Result.failure(e)
-            }
-        }
-    }
-
     suspend fun logout(): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             try {
@@ -114,5 +88,25 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     fun isLoggedIn(): Boolean {
         return SessionManager.isLoggedIn()
+    }
+
+    /**
+     * Sends the user's login credentials to their email.
+     *
+     */
+    suspend fun sendCredentials(email: String): Result<MessageResponse> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = authService.sendCredentials(ForgotPasswordRequest(email))
+
+                if (response.isSuccessful) {
+                    Result.success(response.body()!!)
+                } else {
+                    Result.failure(Exception("Error: ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
     }
 }
