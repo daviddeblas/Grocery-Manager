@@ -20,7 +20,7 @@ This application is an Android application designed to simplify your shopping li
 
 ### Option 1: Direct Download
 
-[Download GroceryManager v1.1.0 (.apk)](https://github.com/daviddeblas/Grocery-Manager/releases/download/v1.1.0/GroceryManager-v1.1.0.apk)
+[Download GroceryManager v1.1.1 (.apk)](https://github.com/daviddeblas/Grocery-Manager/releases/download/v1.1.1/GroceryManager-v1.1.1.apk)
 
 ### Option 2: QR Code Download
 
