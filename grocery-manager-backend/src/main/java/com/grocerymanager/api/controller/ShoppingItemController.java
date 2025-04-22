@@ -103,7 +103,18 @@ public class ShoppingItemController {
             return null;
         }
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        return userService.findById(userDetails.getId()).orElse(null);
+        Object principal = authentication.getPrincipal();
+
+        // Handle both UserDetailsImpl and Spring Security's User
+        if (principal instanceof UserDetailsImpl) {
+            UserDetailsImpl userDetails = (UserDetailsImpl) principal;
+            return userService.findById(userDetails.getId()).orElse(null);
+        } else if (principal instanceof org.springframework.security.core.userdetails.User) {
+            // For tests with @WithMockUser
+            String username = ((org.springframework.security.core.userdetails.User) principal).getUsername();
+            return userService.findByUsername(username).orElse(null);
+        }
+
+        return null;
     }
 }
